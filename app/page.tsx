@@ -286,7 +286,7 @@ export default function Portfolio() {
                 </div>
               </div>
 
-              <div className="sticky top-20 lg:w-1/2">
+              <div className=" lg:w-1/2">
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-3xl font-bold text-white">{project.title}</h2>
                   <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium border border-green-500/30">
