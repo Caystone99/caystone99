@@ -11,10 +11,10 @@ I thrive in fast-paced startup environments — building from idea to launch, sh
 ### 🔹 [What2Plan]
 AI-driven recommendation app for fun things to do, built with **Flutter** and **Mistral 7B**.
 
-### 🔹 [Stexys]([https://stexys.com])
+### 🔹 [Stexys](https://stexys.com)
 A platform empowering event creators and attendees across Africa.
 
-### 🔹 [WeSpeakAfrica]([https://wespeakafrica.com])
+### 🔹 [WeSpeakAfrica](https://wespeakafrica.com)
 A curated space for African art and media — built with **Next.js** and focused on performance, image optimization, and storytelling.
 
 ### 🔹 [Mok Express](https://mokexpresservices.com/)
