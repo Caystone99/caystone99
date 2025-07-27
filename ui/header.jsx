@@ -3,7 +3,7 @@ import { GithubIcon, LinkedinIcon, MailIcon, TwitterIcon } from "lucide-react";
 export default function Header(){
   return (
     <nav className="relative py-4">
-      <div className="flex w-full sticky top-10 flex-row gap-4 mx-5 md:gap-8 md:mx-20 lg:gap-12">
+      <div className="flex sticky top-10 flex-row gap-4 mx-5 md:gap-6 md:mx-20 lg:gap-8">
         <a href='https://github.com/caystone99' target="_blank" rel="noopener noreferrer" className="text-foreground/70 hover:text-foreground">
           <GithubIcon/>
         </a>
