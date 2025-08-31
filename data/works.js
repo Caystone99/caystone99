@@ -13,7 +13,7 @@ const works = [
     title: "KRI",
     description: "KRI is a co-founder matching platform designed for the African startup ecosystem. It helps entrepreneurs find compatible co-founders, access incubation resources, and prepare for funding. With built-in tools for agreement templates, pitch prep, and VC readiness, KRI streamlines the early-stage startup journey.",
     tech: ["Next.js", "Tailwind CSS", "Node.js", "PostgreSQL", "Supabase", "Firebase Auth"],
-    liveUrl: "https://kri-black.vercel.app", //"https://kri.africa",
+    liveUrl: "https://kri-pwa.vercel.app/", //"https://kri.africa",
     status: "in-progress",
   },
   {
