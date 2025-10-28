@@ -29,7 +29,7 @@ const works = [
     title: "King of Soto",
     description: "King of Soto, the makers of the popular Sodabi brand, Queen of Soto, is a leading beverage company in Benin. Their website, built with Next.js, React, and Tailwind CSS, showcases their range of products, company history, and commitment to quality. The site features a modern design with smooth animations powered by Framer Motion and supports multiple languages using i18next.",
     tech: ["Next.js", "React", "Framer Motion", "Tailwind CSS", "i18next"],
-    liveUrl: "https://kingofsoto.bgj",
+    liveUrl: "https://kingofsoto.bj",
     status: "Live",
   },
   {
