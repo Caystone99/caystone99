@@ -17,6 +17,22 @@ const works = [
     status: "in-progress",
   },
   {
+    id: "excelsior",
+    title: "Excelsior Africa",
+    description: "The Excelsior Africa website is a corporate portfolio showcasing the firm's pan-African innovation initiatives. Built with modern web technologies, the site features dynamic content, interactive elements, and a professional design that reflects the company's commitment to African innovation and development.",
+    tech: ["Next.js", "React", "Framer Motion", "Tailwind CSS", "Contentful"],
+    liveUrl: "https://excelsiorafrica.com",
+    status: "Live",
+  },
+  {
+    id: "soto",
+    title: "King of Soto",
+    description: "King of Soto, the makers of the popular Sodabi brand, Queen of Soto, is a leading beverage company in Benin. Their website, built with Next.js, React, and Tailwind CSS, showcases their range of products, company history, and commitment to quality. The site features a modern design with smooth animations powered by Framer Motion and supports multiple languages using i18next.",
+    tech: ["Next.js", "React", "Framer Motion", "Tailwind CSS", "i18next"],
+    liveUrl: "https://kingofsoto.bgj",
+    status: "Live",
+  },
+  {
     id: "beninfy",
     title: "Beninfy",
     description: "Beninfy is a comprehensive mobility solution for Benin, offering both ride-hailing and car rental services. Built with Flutter for seamless cross-platform experience, the app connects drivers with passengers while also providing flexible car rental options for longer trips.",
@@ -34,14 +50,6 @@ const works = [
     status: "in-progress",
   },
   {
-    id: "excelsior",
-    title: "Excelsior Africa",
-    description: "The Excelsior Africa website is a corporate portfolio showcasing the firm's pan-African innovation initiatives. Built with modern web technologies, the site features dynamic content, interactive elements, and a professional design that reflects the company's commitment to African innovation and development.",
-    tech: ["Next.js", "React", "Framer Motion", "Tailwind CSS", "Contentful"],
-    liveUrl: "https://excelsiorafrica.com",
-    status: "Live",
-  },
-  {
     id: "stexys",
     title: "Stexys",
     description:
@@ -51,31 +59,13 @@ const works = [
     status: "terminated",
   },
   {
-    id: "mokexpress",
-    title: "Mok Express",
-    description:
-      "Mok Express is a comprehensive logistics and delivery management platform designed for modern e-commerce businesses. The platform handles everything from order management to real-time tracking, driver assignment, and customer notifications.",
-    tech: ["React", "Node.js", "Express", "PostgreSQL", "Google Maps"],
-    liveUrl: "https://mokexpresservices.com/",
-    status: "Live",
-  },
-  {
     id: "lysted",
     title: "Lysted by Treker",
     description: "Lysted by Treker is a modern real estate platform that simplifies property rental and listing processes. The platform connects property owners with potential tenants through an intuitive interface, advanced search capabilities, and comprehensive property management tools.",
     tech: ["Flutter", "GetX", "Node.js", "MongoDB", "AWS S3",  "Paystack"],
     //liveUrl: "https://lysted.treker.com",
     status: "in-progress",
-  },
-  {
-    id: "beninfy",
-    title: "Beninfy",
-    description: "Beninfy is a comprehensive mobility solution for Benin, offering both ride-hailing and car rental services. Built with Flutter for seamless cross-platform experience, the app connects drivers with passengers while also providing flexible car rental options for longer trips.",
-    tech: ["Flutter", "Firebase", "Mapbox", "GetX", "Stripe", "Node.js"],
-    //liveUrl: "https://beninfy.app",
-    status: "in-progress",
-  },
-  
+  },  
 ];
 
 export default works;
