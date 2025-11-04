@@ -1,6 +1,6 @@
 # 👋 Hi, I'm Caleb-Livingstone Emmanuel
 
-I'm a **JavaScript-focused fullstack developer** with strong frontend expertise in **React**, **Next.js**, and **Tailwind CSS**, and cross-platform experience using **Flutter**. I also work on scalable backends with **Node.js**, **Firebase**, and **AWS**.
+I'm a **Software developer** with strong frontend expertise in **React**, **Next.js**, and **Tailwind CSS**, and cross-platform experience using **Flutter**. I also work on scalable backends with **Node.js**, **GoLang** **Firebase**, and **AWS**.
 
 I thrive in fast-paced startup environments — building from idea to launch, shaping technical direction, and delivering real value to users.
 
