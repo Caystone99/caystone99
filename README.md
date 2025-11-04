@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 👋 Hi, I'm Caleb-Livingstone Emmanuel
 
-## Getting Started
+I'm a **Software developer** with strong frontend expertise in **React**, **Next.js**, and **Tailwind CSS**, and cross-platform experience using **Flutter**. I also work on scalable backends with **Node.js**, **GoLang** **Firebase**, and **AWS**.
 
-First, run the development server:
+I thrive in fast-paced startup environments — building from idea to launch, shaping technical direction, and delivering real value to users.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 What I’m Working On
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### 🔹 [What2Plan]
+AI-driven recommendation app for fun things to do, built with **Flutter** and **Mistral 7B**.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🔹 [Stexys](https://stexys.com)
+A platform empowering event creators and attendees across Africa.
 
-## Learn More
+### 🔹 [WeSpeakAfrica](https://wespeakafrica.com)
+A curated space for African art and media — built with **Next.js** and focused on performance, image optimization, and storytelling.
 
-To learn more about Next.js, take a look at the following resources:
+### 🔹 [Mok Express](https://mokexpresservices.com/)
+Fullstack logistics and delivery solution with route tracking, live status, and driver management.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 🔹 [Lysted by Treker]
+A smart property listing platform — with filters, AI-driven search, and real-time notifications.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 🔹 [Beninfy]
+Ride-hailing and car rental service in Benin — Flutter-based frontend, Node.js backend.
 
-## Deploy on Vercel
+### 🔹 [Excelsior Africa Website](https://excelsiorafrica.com)
+Corporate website for a pan-African innovation firm — polished, accessible, and fully responsive.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📚 What I’m Currently Reading
+> Always learning, always leveling up.
+
+- *Grokking Algorithms*
+- *Grokking Data Structures*
+- *Grokking Deep Reinforcement Learning*
+- *Deep Learning for Vision Systems*
+
+---
+
+## 🤝 Let's Connect
+
+- [LinkedIn](https://www.linkedin.com/in/caystone/)
+- [Twitter](https://x.com/caystone_99)
+
+---
+
+🧠 *"Code is creative expression. I build to solve, but also to tell stories."*
