@@ -47,12 +47,12 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            A person or thing that brings something into existence.
+            Full-stack Software Engineer, Robotics Software Engineer
           </motion.em>
         </div>
 
         <div className="flex flex-col items-start gap-6 mt-10 mx-5 md:mx-20">
-          <h2 className="bhinacle font-black text-2xl md:text-4xl">Examples</h2>
+          <h2 className="bhinacle font-black text-2xl md:text-4xl">Projects</h2>
           <motion.div 
             variants={containerVariants}
             initial="hidden"
@@ -69,7 +69,7 @@ export default function Home() {
                 >
                   <div className="flex flex-row justify-between gap-4 items-center">
                     <div className="flex flex-row items-baseline gap-2 flex-wrap">
-                      <h3 className="bhinacle text-lg md:text-xl font-black">{work.title}</h3>
+                      <a href={work.liveUrl} className="bhinacle text-lg md:text-xl font-black">{work.title}</a>
                       {work.country && (
                         <span className="text-foreground/60 text-sm">{work.country}</span>
                       )}

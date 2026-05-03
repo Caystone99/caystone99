@@ -40,7 +40,7 @@ const works = [
     title: "SourcingPick",
     description: "Full-stack platform for a European sourcing company operating out of Canton, China, with an in-app chat feature.",
     tech: ["Next.js", "i18next", "Framer Motion", "Tailwind CSS", "SWE", "Stripe"],
-    country: "China",
+    country: "Canton, China",
     liveUrl: "https://sourcingpick.com/en",
     status: "Live",
   },
