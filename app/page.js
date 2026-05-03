@@ -69,7 +69,7 @@ export default function Home() {
                 >
                   <div className="flex flex-row justify-between gap-4 items-center">
                     <div className="flex flex-row items-baseline gap-2 flex-wrap">
-                      <a href={work.liveUrl} className="bhinacle text-lg md:text-xl font-black">{work.title}</a>
+                      <a href={work.liveUrl} className="bhinacle hover:underline underline-offset-2 transition-all duration-200 text-lg md:text-xl font-black">{work.title}</a>
                       {work.country && (
                         <span className="text-foreground/60 text-sm">{work.country}</span>
                       )}

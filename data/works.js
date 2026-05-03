@@ -2,7 +2,7 @@ const works = [
   {
     id: "partyra",
     title: "Partyra",
-    description: "Ticketing platform for events, VIP experiences, and bookings at local bars and lounges.",
+    description: "The TikTok of ticketing — a swipeable, feed-driven experience for discovering events, VIP perks, and bookings at local bars and lounges.",
     tech: ["Next.js", "Tailwind CSS", "Framer Motion", "Stripe"],
     country: "Toronto, Canada",
     liveUrl: "https://partyra.com",
@@ -38,7 +38,7 @@ const works = [
   {
     id: "sourcingpick",
     title: "SourcingPick",
-    description: "Full-stack platform for a European sourcing company operating out of Canton, China, with an in-app chat feature.",
+    description: "Full-stack platform for a European sourcing company operating out of Canton, China, with an in-app chat feature. Available in Simplified Chinese, English, and French.",
     tech: ["Next.js", "i18next", "Framer Motion", "Tailwind CSS", "SWE", "Stripe"],
     country: "Canton, China",
     liveUrl: "https://sourcingpick.com/en",
