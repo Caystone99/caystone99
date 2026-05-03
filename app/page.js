@@ -68,7 +68,12 @@ export default function Home() {
                   className="flex flex-col gap-2 border-b p-2 border-b-foreground/10"
                 >
                   <div className="flex flex-row justify-between gap-4 items-center">
-                    <h3 className="bhinacle text-lg md:text-xl font-black">{work.title}</h3>
+                    <div className="flex flex-row items-baseline gap-2 flex-wrap">
+                      <h3 className="bhinacle text-lg md:text-xl font-black">{work.title}</h3>
+                      {work.country && (
+                        <span className="text-foreground/60 text-sm">{work.country}</span>
+                      )}
+                    </div>
                     <div className="flex flex-row gap-4">
                       
                       {
