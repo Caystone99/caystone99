@@ -44,6 +44,24 @@ const works = [
     liveUrl: "https://sourcingpick.com/en",
     status: "Live",
   },
+  {
+    id: "aikprojects",
+    title: "AIK Projects",
+    description: "Your trusted construction support across Canada, providing services such as skilled labour, expert handymen, post-construction cleans and accredited safety training.",
+    tech: ["Next.js", "SPA"],
+    country: "Canada",
+    liveUrl: "https://www.aikprojects.ca/",
+    status: "Live",
+  },
+  {
+    id: "inairis",
+    title: "Inairis",
+    description: "Boutique software studio and full-service digital partner — a squad of senior experts spanning strategy, design, frontend, backend, mobile, and AI. Services include web & SaaS development, mobile apps, AI & data solutions, design & branding, security audits, and games & 3D. Available in English, French, and Simplified Chinese.",
+    tech: ["Next.js", "i18next", "Framer Motion", "Tailwind CSS"],
+    country: "Paris, France",
+    liveUrl: "https://inairis.fr",
+    status: "Live",
+  },
 ];
 
 export default works;
