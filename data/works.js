@@ -14,7 +14,7 @@ const works = [
     description: "Venue management platform for operators to manage events, staff, and on-site operations.",
     tech: ["Next.js", "Tailwind CSS", "Framer Motion", "Stripe", "Budpay"],
     country: "Toronto, Canada",
-    liveUrl: "https://passr.partyr.com",
+    liveUrl: "https://passr.partyra.com",
     status: "Live",
   },
   {
