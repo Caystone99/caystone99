@@ -20,7 +20,7 @@ const works = [
   {
     id: "melrys",
     title: "Melrys",
-    description: "Full-stack fintech service in France that handles invoicing for businesses.",
+    description: "Full-stack French invoicing & billing SaaS (facturation électronique) for businesses — create and manage devis and factures with e-signature workflows and seat-based team plans. Built for France's 2026 e-invoicing reform: generates compliant Factur-X invoices, integrates with Chorus Pro for public-sector (B2G) billing, and automates company formalities through INPI's Guichet Unique.",
     tech: ["Next.js", "NestJS", "Framer Motion", "Tailwind CSS", "PostgreSQL", "Redis", "Stancer", "Bridge", "INSEE", "INPI"],
     country: "Paris, France",
     liveUrl: "https://melrys.fr",
