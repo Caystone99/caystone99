@@ -38,7 +38,7 @@ export type Entry = {
 export const bench: Entry[] = [
   {
     key: "khrona", no: "01", title: "KhronaHQ", field: "company", status: "Building", sketch: "company",
-    body: "KhronaHQ buys African tech companies that have real customers but have stalled, and runs them for the long term on one shared platform: finance, billing, analytics and infrastructure that every company plugs into.",
+    body: "Operational and growth partners for African tech companies that have real customers but have stalled: we invest, work inside them, and grow them on one shared platform for finance, billing, analytics and infrastructure.",
     margin: "Lagos · Cotonou",
     link: { href: "https://khronahq.com", label: "khronahq.com" },
   },
