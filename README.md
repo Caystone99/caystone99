@@ -8,7 +8,7 @@ I build things that **move**, **think** and **last**: robots, software, material
 
 ## Building
 
-**[KhronaHQ](https://khronahq.com)** buys African tech companies that have real customers but have stalled. It runs them for the long term on one shared platform: finance, billing, analytics and infrastructure that every company plugs into.
+**[KhronaHQ](https://khronahq.com)**: operational and growth partners for African tech companies that have real customers but have stalled. We invest, work inside the company, and grow it on one shared platform: finance, billing, analytics and infrastructure that every company plugs into.
 
 ## On the bench
 
