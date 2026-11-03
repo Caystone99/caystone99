@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Activity from "@/components/Activity";
+import DraftList from "@/components/DraftList";
 import NoteList from "@/components/NoteList";
 import Shell from "@/components/Shell";
 import { topicTitle, topics } from "@/lib/content";
-import { publishedNotes } from "@/lib/db";
+import { isWriter } from "@/lib/auth";
+import { allNotes, publishedNotes } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Notes · Caleb-Livingstone Emmanuel",
@@ -17,6 +19,10 @@ export default async function Notes({ searchParams }: { searchParams: Promise<{ 
   const all = await publishedNotes().catch(() => []);
   const notes = topic ? all.filter((n) => n.topic === topic) : all;
   const used = topics.filter((t) => all.some((n) => n.topic === t.key));
+  // Signed in, your drafts are here too, to pick one up again. Nobody else sees them.
+  const drafts = (await isWriter())
+    ? (await allNotes().catch(() => [])).filter((n) => n.status === "draft" && (!topic || n.topic === topic)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    : null;
 
   return (
     <Shell>
@@ -26,6 +32,19 @@ export default async function Notes({ searchParams }: { searchParams: Promise<{ 
         <p className="intro">Progress, dead ends and what I&apos;m reading. Written as I go, so the gaps show too.</p>
         <Activity notes={all} />
       </section>
+
+      {drafts && (
+        <section className="section notes-section drafts">
+          <div className="section-head">
+            <h2 className="label">Your drafts <span className="drafts-count">{drafts.length}</span></h2>
+            <span className="inline">
+              <Link href="/write" className="btn btn-ghost btn-sm">All your notes</Link>
+              <Link href="/write/new" className="btn btn-sm">New note</Link>
+            </span>
+          </div>
+          {drafts.length ? <DraftList notes={drafts} /> : <p className="empty">No drafts{topic ? ` in ${topicTitle(topic)}` : ""}. Everything is published.</p>}
+        </section>
+      )}
 
       {used.length > 1 && (
         <nav className="filters" aria-label="Topics">

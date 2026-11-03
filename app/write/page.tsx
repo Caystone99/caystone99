@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import DraftList from "@/components/DraftList";
 import LoginForm from "@/components/LoginForm";
 import Shell from "@/components/Shell";
 import { isWriter, writingEnabled } from "@/lib/auth";
@@ -20,6 +21,8 @@ export default async function Write() {
     return <Shell><section className="notes-head"><p className="label">Write</p><h1 className="h1">Sign in to write.</h1><LoginForm /></section></Shell>;
   }
   const notes = await allNotes();
+  const drafts = notes.filter((n) => n.status === "draft").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const published = notes.filter((n) => n.status === "published");
   return (
     <Shell>
       <section className="notes-head">
@@ -31,10 +34,18 @@ export default async function Write() {
           </span>
         </div>
       </section>
+      {notes.length === 0 && <section className="section notes-section"><p className="empty">No notes yet. Start with what you did today.</p></section>}
+      {drafts.length > 0 && (
+        <section className="section notes-section drafts">
+          <h2 className="label">Drafts <span className="drafts-count">{drafts.length}</span></h2>
+          <DraftList notes={drafts} />
+        </section>
+      )}
       <section className="section notes-section">
-        {notes.length === 0 ? <p className="empty">No notes yet. Start with what you did today.</p> : (
+        {published.length > 0 && <h2 className="label">Published <span className="drafts-count">{published.length}</span></h2>}
+        {published.length > 0 && (
           <ol className="built notes-list">
-            {notes.map((n) => (
+            {published.map((n) => (
               <li key={n.id}>
                 <Link href={`/write/${n.id}`} className="built-row">
                   <span className="built-no">{fmt(n.publishedAt ?? n.updatedAt)}</span>

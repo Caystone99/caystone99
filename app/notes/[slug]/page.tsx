@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import CodeCopy from "@/components/CodeCopy";
 import Shell from "@/components/Shell";
+import { isWriter } from "@/lib/auth";
 import { topicTitle } from "@/lib/content";
 import { noteBySlug, publishedNotes } from "@/lib/db";
 import { excerpt, noteText, readingMinutes } from "@/lib/markdown";
@@ -36,6 +37,7 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
             <span>{fmt(note.publishedAt!)}</span>
             <Link href={`/notes?topic=${note.topic}`}>{topicTitle(note.topic)}</Link>
             <span>{readingMinutes(noteText(note))} min read</span>
+            {(await isWriter()) && <Link href={`/write/${note.id}`}>Edit</Link>}
           </p>
           <h1 className="note-title">{note.title}</h1>
         </header>

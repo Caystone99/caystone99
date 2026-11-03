@@ -17,7 +17,7 @@ Next.js 16, React 19 and TypeScript, styled with plain CSS. Notes live in [Turso
 
 - **Home** (`app/page.tsx`): the hero with a live boids swarm, the bench (what I'm building and learning, each with an animated pen drawing), the latest notes with twelve weeks of activity, and work.
 - **Notes** (`/notes`, `/notes/[slug]`): published notes, filterable by topic.
-- **Writing** (`/write`): a password-protected editor for notes. It isn't linked anywhere, and search engines are told to skip it.
+- **Writing** (`/write`): a password-protected editor for notes, with your drafts listed first. It isn't linked anywhere, and search engines are told to skip it. Signed in, `/notes` also shows your drafts at the top (only to you), and each published note has an Edit link.
 - **Top bar**: Cotonou's time (WAT), temperature and an animated drawing of the current sky, plus the light/dark switch.
 
 ## Changing the content
