@@ -45,7 +45,7 @@ export async function save(input: { id?: number; title: string; slug: string; to
     const slug = slugify(input.slug || title);
     if (!slug) return { ok: false, error: "The address needs letters or numbers" };
     if (!topics.some((t) => t.key === input.topic)) return { ok: false, error: "Pick a topic" };
-    if (input.status === "published" && !noteText({ body: input.body, format: "html" }) && !/<(img|video|iframe)\b/.test(input.body)) return { ok: false, error: "Write something before publishing" };
+    if (input.status === "published" && !noteText({ body: input.body, format: "html" }) && !/<(img|video|iframe)\b|data-math=|class="note-graph"/.test(input.body)) return { ok: false, error: "Write something before publishing" };
     const before = input.id ? await noteById(input.id) : null;
     const id = await saveNote({ ...input, title, slug, format: "html" });
     refresh(slug);

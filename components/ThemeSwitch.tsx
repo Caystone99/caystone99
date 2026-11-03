@@ -8,28 +8,38 @@ type Theme = "light" | "dark";
 // remembers the choice. With no choice made, the site follows the system setting, live.
 export const themeScript = `try{var t=localStorage.getItem("theme");if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="dark"}`;
 
+// The theme the visitor chose, or else their system's.
+function wanted(): Theme {
+  let saved = null;
+  try { saved = localStorage.getItem("theme"); } catch {}
+  if (saved === "light" || saved === "dark") return saved;
+  return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
 export default function ThemeSwitch() {
   const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
-    setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
-    const system = matchMedia("(prefers-color-scheme: light)");
-    const follow = () => {
-      let saved = null;
-      try { saved = localStorage.getItem("theme"); } catch {}
-      if (saved) return;
-      const next = system.matches ? "light" : "dark";
-      document.documentElement.dataset.theme = next;
+    const root = document.documentElement;
+    const apply = () => {
+      const next = wanted();
+      if (root.dataset.theme !== next) root.dataset.theme = next;
       setTheme(next);
     };
-    system.addEventListener("change", follow);
-    return () => system.removeEventListener("change", follow);
+    apply();
+    // React redraws <html> when a page refreshes (after saving a note, say) and drops data-theme, so it goes back on.
+    const guard = new MutationObserver(() => { if (root.dataset.theme !== wanted()) apply(); });
+    guard.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    const system = matchMedia("(prefers-color-scheme: light)");
+    system.addEventListener("change", apply);
+    return () => { guard.disconnect(); system.removeEventListener("change", apply); };
   }, []);
 
   function flip() {
     const next: Theme = theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
+    // Remembered first, so the guard above sees the new choice as wanted.
     try { localStorage.setItem("theme", next); } catch {}
+    document.documentElement.dataset.theme = next;
     setTheme(next);
   }
 

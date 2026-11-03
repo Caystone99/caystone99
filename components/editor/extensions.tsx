@@ -8,7 +8,7 @@ import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion";
 import type { IconName } from "./icons";
 
 // The blocks you can add from the "/" menu, the + beside a block, or turn a block into from the toolbar.
-export type EditorActions = { pickMedia: () => void; askYoutube: () => void };
+export type EditorActions = { pickMedia: () => void; askYoutube: () => void; openLink: () => void };
 export type Block = {
   key: string; label: string; hint: string; icon: IconName; keywords?: string;
   // Blocks that change the current block (rather than add one) can be used to "turn into".
@@ -40,8 +40,17 @@ export const blocks: Block[] = [
     run: (e) => e.chain().focus().clearNodes().toggleBlockquote().run(), active: (e) => e.isActive("blockquote") },
   { key: "callout", label: "Callout", hint: "A boxed aside", icon: "callout", keywords: "note aside info", convert: true,
     run: (e) => e.chain().focus().clearNodes().wrapIn("callout").run(), active: (e) => e.isActive("callout") },
-  { key: "code", label: "Code", hint: "Monospaced block", icon: "code", keywords: "pre snippet", convert: true,
+  { key: "code", label: "Code cell", hint: "Highlighted, with a language", icon: "code", keywords: "pre snippet program script", convert: true,
     run: (e) => e.chain().focus().clearNodes().toggleCodeBlock().run(), active: (e) => e.isActive("codeBlock") },
+  { key: "math", label: "Equation", hint: "A line of maths, in LaTeX", icon: "math", keywords: "math latex formula katex",
+    run: (e) => e.chain().focus().command(afterSelectedBlock).insertContent({ type: "mathBlock" }).run() },
+  { key: "mathInline", label: "Inline equation", hint: "Maths within a sentence", icon: "mathInline", keywords: "math latex formula",
+    run: (e) => {
+      const { from, to } = e.state.selection;
+      e.chain().focus().insertContent({ type: "mathInline", attrs: { latex: e.state.doc.textBetween(from, to) } }).run();
+    } },
+  { key: "graph", label: "Graph", hint: "Points on axes", icon: "graph", keywords: "plot chart points data scatter",
+    run: (e) => e.chain().focus().command(afterSelectedBlock).insertContent({ type: "graph" }).run() },
   { key: "divider", label: "Divider", hint: "A line across", icon: "divider", keywords: "hr rule separator",
     run: (e) => e.chain().focus().command(afterSelectedBlock).setHorizontalRule().run() },
   { key: "media", label: "Photo or video", hint: "Upload from your computer", icon: "media", keywords: "image picture upload footage",
@@ -115,7 +124,7 @@ export const Callout = Node.create({
 export const SlashCommand = Extension.create<{ render: SuggestionOptions<Block>["render"]; actions: () => EditorActions }>({
   name: "slashCommand",
   addOptions() {
-    return { render: undefined, actions: () => ({ pickMedia() {}, askYoutube() {} }) };
+    return { render: undefined, actions: () => ({ pickMedia() {}, askYoutube() {}, openLink() {} }) };
   },
   addProseMirrorPlugins() {
     return [
@@ -131,5 +140,8 @@ export const SlashCommand = Extension.create<{ render: SuggestionOptions<Block>[
         render: this.options.render,
       }),
     ];
+  },
+  addKeyboardShortcuts() {
+    return { "Mod-k": () => { this.options.actions().openLink(); return true; } };
   },
 });

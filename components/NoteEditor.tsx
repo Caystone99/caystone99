@@ -1,9 +1,11 @@
 "use client";
 
 import type { Editor } from "@tiptap/core";
-import { TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import Highlight from "@tiptap/extension-highlight";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
 import Youtube from "@tiptap/extension-youtube";
 import { Placeholder } from "@tiptap/extensions";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
@@ -17,17 +19,19 @@ import type { Note } from "@/lib/db";
 import { renderMarkdown, slugify } from "@/lib/markdown";
 import Dropdown from "./Dropdown";
 import BlockHandle from "./editor/BlockHandle";
+import { CodeCell, GraphBlock, MathBlock, MathInline } from "./editor/cells";
 import { afterSelectedBlock, blocks, Callout, Media, SlashCommand, type Block, type EditorActions } from "./editor/extensions";
 import { Icon, type IconName } from "./editor/icons";
+import LinkEditor, { LinkPeek, type LinkTarget, type NoteLink } from "./editor/LinkEditor";
+import "katex/dist/katex.min.css";
 
-type Props = { note: Note | null; topics: { key: string; title: string }[]; uploads: boolean };
+type Props = { note: Note | null; topics: { key: string; title: string }[]; notes: NoteLink[]; uploads: boolean };
 type Slash = { items: Block[]; index: number; left: number; top: number; pick: (b: Block) => void };
-type Prompt = { kind: "link" | "youtube"; value: string };
 
 // Write on the page as it will look. Select text to format it, type "/" (or press + beside a block) to add
-// headings, lists, callouts, code, photos and video, and drag a block's grip to move it. Cmd/Ctrl+S saves.
-// Photos and video upload straight to the bucket; drop or paste them in, too.
-export default function NoteEditor({ note, topics, uploads }: Props) {
+// headings, lists, callouts, code cells, equations, graphs, photos and video, and drag a block's grip to move it.
+// Cmd/Ctrl+K adds a link, Cmd/Ctrl+S saves. Photos and video upload straight to the bucket; drop or paste them in, too.
+export default function NoteEditor({ note, topics, notes, uploads }: Props) {
   const router = useRouter();
   const [id, setId] = useState(note?.id);
   const [title, setTitle] = useState(note?.title ?? "");
@@ -39,36 +43,50 @@ export default function NoteEditor({ note, topics, uploads }: Props) {
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [upload, setUpload] = useState<{ name: string; percent: number } | null>(null);
   const [slash, setSlash] = useState<Slash | null>(null);
-  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [youtube, setYoutube] = useState<string | null>(null);
+  const [link, setLink] = useState<LinkTarget | null>(null);
   const [pending, start] = useTransition();
   const file = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLDivElement>(null);
   const slashRef = useRef<Slash | null>(null);
   slashRef.current = slash;
+  const linking = useRef(false);
+  linking.current = !!link;
   // What was last saved, to know whether leaving would lose anything. Set once the editor has read the note.
   const saved = useRef({ body: "", title: note?.title ?? "" });
   const dirty = body !== saved.current.body || title !== saved.current.title;
 
   const actions = useRef<EditorActions>({
     pickMedia: () => (uploads ? file.current?.click() : setMessage({ tone: "error", text: "Uploads switch on once the R2 bucket is set up" })),
-    askYoutube: () => setPrompt({ kind: "youtube", value: "" }),
+    askYoutube: () => setYoutube(""),
+    // Through a ref, since the shortcut is set up before the editor exists.
+    openLink: () => linkOpener.current(),
   });
+  const linkOpener = useRef(() => {});
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
-        link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
+        link: { openOnClick: false, autolink: true, linkOnPaste: true, defaultProtocol: "https" },
+        // Replaced by the code cell below.
+        codeBlock: false,
         dropcursor: { color: "var(--accent)", width: 2 },
       }),
       Placeholder.configure({ placeholder: ({ node }) => (node.type.name === "heading" ? "Heading" : "Write, or type / for blocks") }),
       Highlight,
+      Subscript,
+      Superscript,
       TaskList,
       TaskItem.configure({ nested: true }),
       Youtube.configure({ nocookie: true, modestBranding: true, width: 640, height: 360 }),
       Media,
       Callout,
+      CodeCell,
+      MathBlock,
+      MathInline,
+      GraphBlock,
       SlashCommand.configure({ actions: () => actions.current, render: slashMenu(setSlash, slashRef) }),
     ],
     // Older notes were written in Markdown; they open here as formatted text and are saved in the new form.
@@ -154,24 +172,26 @@ export default function NoteEditor({ note, topics, uploads }: Props) {
     if (file.current) file.current.value = "";
   }
 
+  // Opens the link editor beside the selection. Inside a link with nothing selected, it edits that whole link.
   function openLink() {
-    if (!editor) return;
-    setPrompt({ kind: "link", value: editor.getAttributes("link").href ?? "" });
+    if (!editor || !area.current) return;
+    if (editor.state.selection.empty && editor.isActive("link")) editor.commands.extendMarkRange("link");
+    const { from, to } = editor.state.selection;
+    if (editor.state.selection instanceof NodeSelection) return;
+    const start = editor.view.coordsAtPos(from), end = editor.view.coordsAtPos(to), box = area.current.getBoundingClientRect();
+    setLink({
+      from, to, href: editor.getAttributes("link").href ?? "", text: editor.state.doc.textBetween(from, to, " "),
+      top: Math.max(start.bottom, end.bottom) - box.top + 8, left: Math.max(0, Math.min(start.left - box.left, box.width - 380)),
+    });
   }
 
-  function submitPrompt(e: React.FormEvent) {
+  linkOpener.current = openLink;
+
+  function embedYoutube(e: React.FormEvent) {
     e.preventDefault();
-    if (!editor || !prompt) return;
-    const value = prompt.value.trim();
-    if (prompt.kind === "link") {
-      const chain = editor.chain().focus().extendMarkRange("link");
-      if (!value) chain.unsetLink().run();
-      else chain.setLink({ href: /^(https?:|mailto:|\/|#)/i.test(value) ? value : `https://${value}` }).run();
-      setPrompt(null);
-    } else {
-      if (!editor.chain().focus().command(afterSelectedBlock).setYoutubeVideo({ src: value }).run()) return setMessage({ tone: "error", text: "That doesn't look like a YouTube link" });
-      setPrompt(null);
-    }
+    if (!editor || youtube === null) return;
+    if (!editor.chain().focus().command(afterSelectedBlock).setYoutubeVideo({ src: youtube.trim() }).run()) return setMessage({ tone: "error", text: "That doesn't look like a YouTube link" });
+    setYoutube(null);
   }
 
   return (
@@ -186,14 +206,14 @@ export default function NoteEditor({ note, topics, uploads }: Props) {
           <button type="button" className="btn" disabled={pending} onClick={() => submit("published")}>{status === "published" ? "Update" : "Publish"}</button>
         </span>
         {editor && <Toolbar editor={editor} actions={actions.current} onLink={openLink} />}
-        {prompt && (
-          <form className="toolbar-prompt" onSubmit={submitPrompt}>
-            <Icon name={prompt.kind === "link" ? "link" : "video"} />
-            <input className="input" autoFocus value={prompt.value} onChange={(e) => setPrompt({ ...prompt, value: e.target.value })}
-              onKeyDown={(e) => { if (e.key === "Escape") { setPrompt(null); editor?.commands.focus(); } }}
-              placeholder={prompt.kind === "link" ? "Paste a link, or leave empty to remove it" : "Paste a YouTube link"} />
-            <button className="btn btn-sm">{prompt.kind === "link" ? "Apply" : "Embed"}</button>
-            <button type="button" className="tool" aria-label="Cancel" onClick={() => { setPrompt(null); editor?.commands.focus(); }}><Icon name="close" /></button>
+        {youtube !== null && (
+          <form className="toolbar-prompt" onSubmit={embedYoutube}>
+            <Icon name="video" />
+            <input className="input" autoFocus value={youtube} onChange={(e) => setYoutube(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") { setYoutube(null); editor?.commands.focus(); } }}
+              placeholder="Paste a YouTube link" />
+            <button className="btn btn-sm">Embed</button>
+            <button type="button" className="tool" aria-label="Cancel" onClick={() => { setYoutube(null); editor?.commands.focus(); }}><Icon name="close" /></button>
           </form>
         )}
       </div>
@@ -222,10 +242,17 @@ export default function NoteEditor({ note, topics, uploads }: Props) {
         <EditorContent editor={editor} />
         {editor && (
           <BubbleMenu editor={editor} className="bubble" options={{ placement: "top", offset: 8 }}
-            shouldShow={({ editor, state }) => !state.selection.empty && !editor.isActive("codeBlock") && !editor.isActive("media") && !editor.isActive("youtube") && !editor.isActive("horizontalRule")}>
+            shouldShow={({ editor, state }) => !linking.current && !state.selection.empty && !(state.selection instanceof NodeSelection) && !editor.isActive("codeBlock")}>
             <Marks editor={editor} onLink={openLink} />
           </BubbleMenu>
         )}
+        {editor && (
+          <BubbleMenu editor={editor} pluginKey="linkPeek" className="bubble bubble-link" options={{ placement: "bottom-start", offset: 6 }}
+            shouldShow={({ editor, state }) => !linking.current && state.selection.empty && editor.isActive("link")}>
+            <LinkPeek editor={editor} onEdit={openLink} />
+          </BubbleMenu>
+        )}
+        {editor && link && <LinkEditor editor={editor} target={link} notes={notes} onClose={() => setLink(null)} />}
         <input ref={file} type="file" accept="image/*,video/mp4,video/webm,video/quicktime" multiple hidden onChange={(e) => onFiles(e.target.files)} />
       </div>
 
@@ -285,6 +312,8 @@ const marks: { key: string; label: string; icon: IconName; run: (e: Editor) => b
   { key: "strike", label: "Strikethrough", icon: "strike", run: (e) => e.chain().focus().toggleStrike().run(), shortcut: "⌘⇧S" },
   { key: "code", label: "Inline code", icon: "inlineCode", run: (e) => e.chain().focus().toggleCode().run(), shortcut: "⌘E" },
   { key: "highlight", label: "Highlight", icon: "highlight", run: (e) => e.chain().focus().toggleHighlight().run(), shortcut: "⌘⇧H" },
+  { key: "subscript", label: "Subscript", icon: "sub", run: (e) => e.chain().focus().toggleSubscript().run(), shortcut: "⌘," },
+  { key: "superscript", label: "Superscript", icon: "sup", run: (e) => e.chain().focus().toggleSuperscript().run(), shortcut: "⌘." },
 ];
 
 // Bold, italic and the rest, plus link: shared by the toolbar and the menu over selected text.
@@ -298,9 +327,13 @@ function Marks({ editor, onLink }: { editor: Editor; onLink: () => void }) {
           <Icon name={m.icon} />
         </button>
       ))}
-      <button type="button" className={`tool${active.link ? " is-on" : ""}`} aria-pressed={active.link} aria-label="Link" title="Link"
+      <button type="button" className={`tool${active.link ? " is-on" : ""}`} aria-pressed={active.link} aria-label="Link" title="Link ⌘K"
         onMouseDown={(e) => e.preventDefault()} onClick={onLink}>
         <Icon name="link" />
+      </button>
+      <button type="button" className="tool" aria-label="Inline equation" title="Inline equation (or type $x^2$)"
+        onMouseDown={(e) => e.preventDefault()} onClick={() => blocks.find((b) => b.key === "mathInline")!.run(editor, { pickMedia() {}, askYoutube() {}, openLink: onLink })}>
+        <Icon name="mathInline" />
       </button>
     </>
   );
@@ -315,7 +348,8 @@ function Toolbar({ editor, actions, onLink }: { editor: Editor; actions: EditorA
       redo: editor.can().redo(),
     }),
   });
-  const insert = blocks.filter((b) => !b.convert);
+  // Inline equations sit with the marks instead.
+  const insert = blocks.filter((b) => !b.convert && b.key !== "mathInline");
   const tool = (key: string, label: string, icon: IconName, run: () => void, disabled = false) => (
     <button key={key} type="button" className="tool" aria-label={label} title={label} disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={run}>
       <Icon name={icon} />

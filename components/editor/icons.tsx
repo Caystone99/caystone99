@@ -30,6 +30,13 @@ const paths = {
   trash: "M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5",
   check: "M3 8.5l3 3 7-7",
   close: "M4 4l8 8M12 4l-8 8",
+  sub: "M2.5 3.5l5 6M7.5 3.5l-5 6M11 10.6a1.4 1.4 0 1 1 2.3 1.1L11 14h2.8",
+  sup: "M2.5 6.5l5 6M7.5 6.5l-5 6M11 3.6a1.4 1.4 0 1 1 2.3 1.1L11 7h2.8",
+  math: "M12.5 3h-8l4 5-4 5h8",
+  mathInline: "M3 13l2.5-10M2 6h4.2M9 6l4 5M13 6l-4 5",
+  graph: "M2.5 2.5v11h11M5 10h1v1H5zM7.5 7h1v1h-1zM10 8h1v1h-1zM12 4h1v1h-1z",
+  external: "M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v4h-9v-9h4",
+  edit: "M10.5 2.5l3 3-8 8h-3v-3z",
 } as const;
 
 export type IconName = keyof typeof paths;

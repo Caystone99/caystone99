@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import CodeCopy from "@/components/CodeCopy";
 import Shell from "@/components/Shell";
 import { topicTitle } from "@/lib/content";
 import { noteBySlug, publishedNotes } from "@/lib/db";
 import { excerpt, noteText, readingMinutes } from "@/lib/markdown";
 import { noteHtml } from "@/lib/render";
+import "katex/dist/katex.min.css";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,7 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
           <h1 className="note-title">{note.title}</h1>
         </header>
         <div className="prose" dangerouslySetInnerHTML={{ __html: noteHtml(note) }} />
+        <CodeCopy />
         {(newer || older) && (
           <nav className="note-pager" aria-label={`More on ${topicTitle(note.topic)}`}>
             {older ? <Link href={`/notes/${older.slug}`}><span className="label">Before</span>{older.title}</Link> : <span />}

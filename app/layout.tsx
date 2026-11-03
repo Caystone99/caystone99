@@ -23,8 +23,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The theme is set by the script before paint, so the attribute differs from the server's on purpose.
-    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`} data-theme="dark" suppressHydrationWarning>
+    // The theme is set by the script before paint, not here: if React owned data-theme, refreshing the page after a
+    // save would put it back to dark. Without the attribute the site is dark, too.
+    <html lang="en" className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
       <body>{children}</body>
     </html>

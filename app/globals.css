@@ -348,6 +348,44 @@ a { color: inherit; }
 .prose ul[data-type="taskList"] input:disabled { cursor: default; }
 .prose div[data-youtube-video] { margin: 1.6em 0; }
 .prose div[data-youtube-video] iframe { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: 14px; background: #000; }
+.prose sub, .prose sup { font-size: 0.72em; line-height: 0; }
+
+/* Equations (typeset by KaTeX), on their own line or in a sentence. */
+.prose .math-block, .math-cell .math-show { overflow-x: auto; overflow-y: hidden; padding: 4px 0; color: var(--ink); }
+.prose .math-block .katex-display { margin: 0; }
+.prose .katex { font-size: 1.12em; }
+.prose .math-inline .katex { font-size: 1.05em; }
+.math-bad { color: var(--danger); font-family: var(--font-mono), monospace; font-size: 0.86em; background: none; }
+
+/* Graphs: points on axes, drawn as SVG by lib/graph.ts. */
+.note-graph { margin: 1.6em 0; }
+.graph { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--code-bg); font-family: var(--font-mono), monospace; }
+.graph .g-grid { stroke: var(--line); stroke-width: 1; }
+.graph .g-zero { stroke: var(--line-2); stroke-width: 1.5; }
+.graph .g-frame { fill: none; stroke: var(--line-2); }
+.graph .g-tick { fill: var(--ink-3); font-size: 11px; }
+.graph .g-label { fill: var(--ink-2); font-family: var(--font-sans), sans-serif; font-size: 13px; }
+.graph .g-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; opacity: 0.7; }
+.graph .g-point { fill: var(--accent); stroke: var(--paper); stroke-width: 1.5; }
+.graph .g-pointlabel { fill: var(--ink); font-family: var(--font-sans), sans-serif; font-size: 12px; }
+.note-graph figcaption { margin-top: 8px; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-3); }
+
+/* Code cells: a head with the language or file name and a copy button, then highlighted code. */
+.code-cell { border: 1px solid var(--line); border-radius: 12px; background: var(--code-bg); }
+.code-cell-head { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 3px 6px 3px 14px; border-bottom: 1px solid var(--line); font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-3); }
+.code-cell-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-copy { margin-left: auto; padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px; background: none; color: var(--ink-2); font: inherit; font-size: 11.5px; cursor: pointer; }
+.code-copy:hover { color: var(--ink); border-color: var(--ink-3); }
+.prose .code-cell pre { margin: 0; border: 0; border-radius: 0; background: none; tab-size: 4; }
+.hljs-comment, .hljs-quote { color: var(--ink-3); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-meta .hljs-keyword, .hljs-doctag, .hljs-section { color: var(--explore); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string { color: var(--go); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color: var(--work); }
+.hljs-title, .hljs-title.function_, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--accent); }
+.hljs-built_in, .hljs-type, .hljs-title.class_, .hljs-attr, .hljs-attribute, .hljs-variable.language_ { color: var(--bolt); }
+.hljs-meta, .hljs-tag { color: var(--ink-2); }
+.hljs-deletion { color: var(--danger); }
+.hljs-emphasis { font-style: italic; } .hljs-strong { font-weight: 500; }
 
 /* ---------- Writing ---------- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 999px; background: var(--ink); color: var(--paper); font: inherit; font-size: 13.5px; text-decoration: none; cursor: pointer; transition: opacity 0.2s; }
@@ -459,3 +497,67 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .dropdown-compact .dropdown-value { min-width: 92px; }
 .dropdown-compact .dropdown-list { position: fixed; top: auto; left: auto; width: max-content; min-width: 200px; margin-top: 6px; }
 .editor-bar .status { margin-left: 0; }
+
+/* Equation, graph and code cells while writing: what will be published, with its editor below when open. */
+.math-cell { border-radius: 12px; transition: background 0.15s; }
+.math-cell .math-show { min-height: 44px; display: grid; place-items: center; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+.math-cell .math-show:hover, .math-cell.is-editing .math-show { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.math-cell.is-editing { box-shadow: 0 0 0 1px var(--line-2); }
+.math-cell .math-show .katex-display { margin: 0; }
+.cell-empty { color: var(--ink-3); font-size: 14px; font-style: italic; }
+.math-inline { position: relative; }
+.math-inline .math-show { padding: 0 2px; border-radius: 5px; cursor: pointer; }
+.math-inline .math-show:hover, .math-inline.is-editing .math-show { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.math-inline .cell-empty { font-size: 0.9em; }
+.math-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; display: block; width: min(420px, 86vw); border: 1px solid var(--line-2); border-radius: 12px; background: var(--menu); box-shadow: 0 18px 50px var(--shadow); font-size: 15px; line-height: 1.5; }
+.math-input { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.math-cell .math-input { border-top: 1px solid var(--line); }
+.math-field { width: 100%; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--field); color: var(--ink); font-family: var(--font-mono), monospace; font-size: 13.5px; line-height: 1.5; resize: vertical; }
+.math-field:focus { outline: none; border-color: var(--accent); }
+.math-error { margin: 0; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--danger); }
+.math-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.math-tab { padding: 4px 9px; border: 0; border-radius: 999px; background: none; color: var(--ink-3); font: inherit; font-size: 12.5px; cursor: pointer; }
+.math-tab:hover { color: var(--ink); }
+.math-tab.is-on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.math-done { margin-left: auto; }
+.math-palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 4px; max-height: 168px; overflow-y: auto; }
+.math-symbol { display: grid; place-items: center; min-height: 38px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--ink); font-size: 13px; overflow: hidden; cursor: pointer; }
+.math-symbol:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.math-symbol .katex { font-size: 1em; }
+
+.editor-doc .note-graph.is-editing .graph { border-color: var(--accent); }
+.graph-show { cursor: pointer; }
+.graph-show.is-adding { cursor: crosshair; }
+.graph-empty { margin: 8px 0 0; }
+.graph-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 12px; padding: 14px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--menu); font-size: 14px; line-height: 1.5; }
+.graph-points { display: flex; flex-direction: column; gap: 6px; }
+.graph-points .input { padding: 8px 12px; font-family: var(--font-mono), monospace; font-size: 13px; resize: vertical; }
+.graph-fields { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.graph-fields .btn { align-self: flex-start; }
+.graph-check { display: flex; align-items: center; gap: 8px; color: var(--ink-2); cursor: pointer; }
+.graph-check input { accent-color: var(--accent); }
+@media (max-width: 640px) { .graph-edit { grid-template-columns: 1fr; } }
+
+.editor-doc .code-cell-head { padding-left: 4px; }
+.editor-doc .code-cell-head .dropdown-compact .dropdown-button { min-height: 28px; font-family: var(--font-mono), monospace; font-size: 12px; }
+.editor-doc .code-cell-head .dropdown-compact .dropdown-value { min-width: 70px; }
+.editor-doc .code-cell-head .dropdown-compact .dropdown-list { position: absolute; top: calc(100% + 4px); left: 0; margin-top: 0; }
+.code-cell-title { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink-2); font: inherit; }
+.code-cell-title:focus { outline: none; color: var(--ink); }
+.code-cell-title::placeholder { color: var(--ink-3); opacity: 0.6; }
+.code-cell-head .tool { width: 28px; height: 28px; }
+
+/* Links: the editor that opens beside the text, and the strip over a link the cursor is in. */
+.link-editor { position: absolute; z-index: 25; display: flex; flex-direction: column; gap: 6px; width: min(380px, 100%); padding: 8px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--menu); box-shadow: 0 18px 50px var(--shadow); }
+.link-row { display: flex; align-items: center; gap: 8px; padding-left: 8px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--field); color: var(--ink-3); }
+.link-row:focus-within { border-color: var(--accent); }
+.link-row .input { min-height: 34px; padding: 0 8px 0 0; border: 0; background: none; }
+.link-choices { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; }
+.link-choices .slash-item { justify-content: space-between; padding: 6px 8px; font-size: 13.5px; }
+.link-choice { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-actions { display: flex; align-items: center; gap: 14px; padding: 2px 4px; }
+.link-actions .btn-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; }
+.link-actions .icon { width: 12px; height: 12px; }
+.link-keys { margin-left: auto; font-family: var(--font-mono), monospace; font-size: 11px; color: var(--ink-3); }
+.bubble-link { align-items: center; }
+.link-peek { max-width: 260px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); font-size: 13px; text-underline-offset: 3px; }

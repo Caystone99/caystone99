@@ -5,7 +5,7 @@ import NoteEditor from "@/components/NoteEditor";
 import Shell from "@/components/Shell";
 import { isWriter } from "@/lib/auth";
 import { topics } from "@/lib/content";
-import { noteById } from "@/lib/db";
+import { noteById, publishedNotes } from "@/lib/db";
 import { uploadsEnabled } from "@/lib/r2";
 
 export const metadata: Metadata = { title: "Write", robots: { index: false, follow: false } };
@@ -16,10 +16,12 @@ export default async function Edit({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   const note = id === "new" ? null : await noteById(Number(id));
   if (id !== "new" && !note) notFound();
+  // Published notes, to link to by title.
+  const notes = (await publishedNotes()).filter((n) => n.id !== note?.id).map((n) => ({ title: n.title, slug: n.slug }));
   return (
     <Shell>
       <Link href="/write" className="note-back">← Your notes</Link>
-      <NoteEditor key={note?.id ?? "new"} note={note} topics={topics} uploads={uploadsEnabled()} />
+      <NoteEditor key={note?.id ?? "new"} note={note} topics={topics} notes={notes} uploads={uploadsEnabled()} />
     </Shell>
   );
 }

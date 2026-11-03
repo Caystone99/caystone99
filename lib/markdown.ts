@@ -30,7 +30,7 @@ const entities: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"'
 // A note's words without formatting, whichever way it was written: for excerpts and reading time.
 export function noteText(note: { body: string; format: "markdown" | "html" }) {
   const text = note.format === "html"
-    ? note.body.replace(/<figcaption>.*?<\/figcaption>/g, " ").replace(/<[^>]+>/g, " ").replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => entities[e])
+    ? note.body.replace(/<figcaption>.*?<\/figcaption>|<div data-math="block">.*?<\/div>/g, " ").replace(/<[^>]+>/g, " ").replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => entities[e])
     : note.body.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[#>*_`~-]/g, "");
   return text.replace(/\s+/g, " ").trim();
 }
