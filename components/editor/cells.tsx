@@ -14,12 +14,21 @@ import MathInput, { renderMath } from "./MathInput";
 // The cells that hold more than text: equations, graphs and code. Each shows what will be published and opens
 // its own editor when clicked, or when it's just been added.
 
+// Where each editor's open cell is. An undo can redraw a cell from scratch, and this is how the new one knows it
+// was open.
+const openCell = new WeakMap<Editor, number>();
+
 // Open while being edited; closes on Done, Escape or a click anywhere else. Opens by itself when the cell is
 // new (empty, added while writing) or reached with the arrow keys.
-function useEditing({ editor, selected, empty }: { editor: Editor; selected: boolean; empty: boolean }) {
-  const [editing, setEditing] = useState(() => empty && editor.isFocused);
+function useEditing({ editor, selected, empty, getPos }: { editor: Editor; selected: boolean; empty: boolean; getPos: () => number | undefined }) {
+  const [editing, setEditing] = useState(() => (empty && editor.isFocused) || (openCell.has(editor) && openCell.get(editor) === getPos()));
   const root = useRef<HTMLElement>(null);
   useEffect(() => { if (selected) setEditing(true); }, [selected]);
+  useEffect(() => {
+    const pos = getPos();
+    if (editing && typeof pos === "number") openCell.set(editor, pos);
+    else if (!editing && openCell.get(editor) === pos) openCell.delete(editor);
+  }, [editing, editor, getPos]);
   useEffect(() => {
     if (!editing) return;
     const away = (e: PointerEvent) => { if (!root.current?.contains(e.target as globalThis.Node)) setEditing(false); };
@@ -47,7 +56,7 @@ const after = (editor: Editor, getPos: () => number | undefined, size: number) =
 
 function MathBlockView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
   const latex = node.attrs.latex as string;
-  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !latex });
+  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !latex, getPos });
   const shown = latex.trim() ? renderMath(latex, true) : null;
   const done = () => { setEditing(false); after(editor, getPos, node.nodeSize); };
   return (
@@ -64,7 +73,7 @@ function MathBlockView({ node, updateAttributes, selected, editor, getPos }: Rea
 
 function MathInlineView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
   const latex = node.attrs.latex as string;
-  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !latex });
+  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !latex, getPos });
   const shown = latex.trim() ? renderMath(latex, false) : null;
   const done = () => { setEditing(false); after(editor, getPos, node.nodeSize); };
   return (
@@ -135,11 +144,12 @@ export const MathInline = Node.create({
 function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
   const graph = readGraph(node.attrs.graph);
   const caption = node.attrs.caption as string;
-  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !graph.points.length });
-  // The points as typed, kept apart from the stored ones so a half-written line isn't thrown away.
-  const [text, setText] = useState(() => pointsText(graph.points));
-  // Read afresh each time it opens, in case an undo changed the points.
-  useEffect(() => { if (editing) setText(pointsText(graph.points)); }, [editing]);
+  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !graph.points.length, getPos });
+  // The points as typed, kept apart from the stored ones so a half-written line isn't thrown away. When the stored
+  // points change some other way (an undo, say), the text follows.
+  const stored = pointsText(graph.points);
+  const [text, setText] = useState(stored);
+  useEffect(() => { if (pointsText(parsePoints(text)) !== stored) setText(stored); }, [stored]);
   const set = (next: Partial<Graph>) => updateAttributes({ graph: { ...graph, ...next } });
   const done = () => { setEditing(false); after(editor, getPos, node.nodeSize); };
 
@@ -168,8 +178,17 @@ function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNo
               onKeyDown={(e) => { if (e.key === "Escape") done(); }} />
           </label>
           <div className="graph-fields">
-            <label className="field"><span className="label">Across (x)</span><input className="input" value={graph.xLabel} placeholder="Time (s)" onChange={(e) => set({ xLabel: e.target.value })} /></label>
-            <label className="field"><span className="label">Up (y)</span><input className="input" value={graph.yLabel} placeholder="Distance (m)" onChange={(e) => set({ yLabel: e.target.value })} /></label>
+            {(["x", "y"] as const).map((a) => (
+              <div key={a} className="field">
+                <span className="label">{a === "x" ? "Across (x)" : "Up (y)"}</span>
+                <input className="input" value={graph[`${a}Label`]} placeholder={a === "x" ? "Time (s)" : "Distance (m)"} aria-label={`${a} axis name`}
+                  onChange={(e) => set({ [`${a}Label`]: e.target.value })} />
+                <span className="graph-bounds">
+                  from <BoundInput label={`${a} from`} value={graph[`${a}Min`]} onChange={(v) => set({ [`${a}Min`]: v })} />
+                  to <BoundInput label={`${a} to`} value={graph[`${a}Max`]} onChange={(v) => set({ [`${a}Max`]: v })} />
+                </span>
+              </div>
+            ))}
             <label className="graph-check"><input type="checkbox" checked={graph.line} onChange={(e) => set({ line: e.target.checked })} />Join the points</label>
             <button type="button" className="btn btn-sm" onClick={done}>Done</button>
           </div>
@@ -180,7 +199,20 @@ function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNo
   );
 }
 
-// Points on a graph, with axis labels and a caption. Stored as data; drawn the same way here and on the site.
+const bound = (text: string) => (text.trim() === "" || !Number.isFinite(Number(text)) ? null : Number(text));
+
+// One end of an axis. Kept as typed, so "-" or "2." can be on their way to a number; empty means it follows the
+// points.
+function BoundInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
+  const [text, setText] = useState(value === null ? "" : String(value));
+  useEffect(() => { if (bound(text) !== value) setText(value === null ? "" : String(value)); }, [value]);
+  return (
+    <input className="input graph-bound" inputMode="decimal" placeholder="auto" aria-label={label} value={text}
+      onChange={(e) => { setText(e.target.value); onChange(bound(e.target.value)); }} />
+  );
+}
+
+// Points on a graph, with axis labels, optional bounds and a caption. Stored as data; drawn the same way here and on the site.
 export const GraphBlock = Node.create({
   name: "graph",
   group: "block",

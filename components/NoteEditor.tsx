@@ -133,9 +133,21 @@ export default function NoteEditor({ note, topics, notes, uploads }: Props) {
   }
 
   // Cmd/Ctrl+S keeps the current status: a draft stays a draft, a published note updates.
+  // Undo and redo take Cmd or Ctrl on any computer: Z, Shift+Z and Y. In the note's text the editor already handles
+  // Cmd on a Mac; this catches the rest: Ctrl on a Mac, and the fields inside equations, graphs and code cells,
+  // whose changes are part of the note's history rather than the field's.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); submit(status); }
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "s") { e.preventDefault(); submit(status); return; }
+      if ((key !== "z" && key !== "y") || e.defaultPrevented || !editor) return;
+      const target = e.target as HTMLElement;
+      // The title, address and link fields keep their own undo.
+      if (target !== document.body && (!target.closest(".editor") || target.closest(".editor-meta, .link-editor, .toolbar-prompt"))) return;
+      e.preventDefault();
+      if (key === "y" || e.shiftKey) editor.commands.redo();
+      else editor.commands.undo();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -366,7 +378,7 @@ function Toolbar({ editor, actions, onLink }: { editor: Editor; actions: EditorA
       {insert.map((b) => tool(b.key, b.label, b.icon, () => b.run(editor, actions)))}
       <span className="toolbar-sep toolbar-push" />
       {tool("undo", "Undo ⌘Z", "undo", () => editor.chain().focus().undo().run(), !state.undo)}
-      {tool("redo", "Redo ⌘⇧Z", "redo", () => editor.chain().focus().redo().run(), !state.redo)}
+      {tool("redo", "Redo ⌘⇧Z or ⌘Y", "redo", () => editor.chain().focus().redo().run(), !state.redo)}
     </div>
   );
 }

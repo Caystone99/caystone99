@@ -1,9 +1,11 @@
 // Points on a graph, drawn as SVG. The editor and the published note both draw with graphSvg, so a graph looks
 // the same in each. Colours come from CSS classes (g-*), which follow the light and dark themes.
 export type Point = { x: number; y: number; label?: string };
-export type Graph = { points: Point[]; line: boolean; xLabel: string; yLabel: string };
+// Bounds left empty (null) follow the points; set ones fix that edge of the graph.
+export type Bounds = { xMin: number | null; xMax: number | null; yMin: number | null; yMax: number | null };
+export type Graph = { points: Point[]; line: boolean; xLabel: string; yLabel: string } & Bounds;
 
-export const emptyGraph: Graph = { points: [], line: false, xLabel: "", yLabel: "" };
+export const emptyGraph: Graph = { points: [], line: false, xLabel: "", yLabel: "", xMin: null, xMax: null, yMin: null, yMax: null };
 
 export const W = 640, H = 400;
 const pad = { left: 58, right: 20, top: 18, bottom: 48 };
@@ -17,7 +19,11 @@ export function readGraph(value: unknown): Graph {
     .map((p) => ({ x: Number(p?.x), y: Number(p?.y), ...(p?.label ? { label: String(p.label).slice(0, 60) } : {}) }))
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
     .slice(0, 500);
-  return { points, line: !!g.line, xLabel: String(g.xLabel ?? "").slice(0, 80), yLabel: String(g.yLabel ?? "").slice(0, 80) };
+  const bound = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+  return {
+    points, line: !!g.line, xLabel: String(g.xLabel ?? "").slice(0, 80), yLabel: String(g.yLabel ?? "").slice(0, 80),
+    xMin: bound(g.xMin), xMax: bound(g.xMax), yMin: bound(g.yMin), yMax: bound(g.yMax),
+  };
 }
 
 // "x, y" or "x, y, label" on each line; blank and unreadable lines are skipped.
@@ -43,19 +49,28 @@ function ticks(min: number, max: number, count: number) {
   return { values: out, step };
 }
 
-function range(values: number[]) {
-  if (!values.length) return [0, 10];
-  let lo = Math.min(...values), hi = Math.max(...values);
-  if (lo === hi) { lo -= 1; hi += 1; }
-  return [lo, hi];
+// One axis: its ends and ticks. A set bound is used exactly; an open end is rounded out to the next tick.
+function axis(values: number[], lo: number | null, hi: number | null, count: number) {
+  // Bounds the wrong way round, or equal, are ignored.
+  if (lo !== null && hi !== null && lo >= hi) lo = hi = null;
+  let min = lo ?? (values.length ? Math.min(...values) : 0);
+  let max = hi ?? (values.length ? Math.max(...values) : 10);
+  if (min >= max) {
+    if (lo === null) min = max - (hi === null ? 1 : Math.max(1, Math.abs(max)));
+    if (hi === null) max = min + (lo === null ? 2 : Math.max(1, Math.abs(min)));
+  }
+  const t = ticks(min, max, count);
+  if (lo === null) min = t.values[0];
+  if (hi === null) max = t.values[t.values.length - 1];
+  const near = t.step * 1e-9;
+  return { min, max, step: t.step, values: t.values.filter((v) => v >= min - near && v <= max + near) };
 }
 
 // Where everything goes: the axes' ticks and the functions between data and drawing.
 export function layout(g: Graph) {
-  const xt = ticks(...(range(g.points.map((p) => p.x)) as [number, number]), 8);
-  const yt = ticks(...(range(g.points.map((p) => p.y)) as [number, number]), 6);
-  const [x0, x1] = [xt.values[0], xt.values[xt.values.length - 1]];
-  const [y0, y1] = [yt.values[0], yt.values[yt.values.length - 1]];
+  const xt = axis(g.points.map((p) => p.x), g.xMin, g.xMax, 8);
+  const yt = axis(g.points.map((p) => p.y), g.yMin, g.yMax, 6);
+  const [x0, x1, y0, y1] = [xt.min, xt.max, yt.min, yt.max];
   const sx = (x: number) => pad.left + ((x - x0) / (x1 - x0)) * (W - pad.left - pad.right);
   const sy = (y: number) => H - pad.bottom - ((y - y0) / (y1 - y0)) * (H - pad.top - pad.bottom);
   // Back from drawing to data, rounded to a tenth of a tick, for clicking a point in.
@@ -79,17 +94,27 @@ export function graphSvg(g: Graph) {
   if (x0 <= 0 && x1 >= 0) parts.push(`<line class="g-zero" x1="${sx(0)}" y1="${top}" x2="${sx(0)}" y2="${bottom}"/>`);
   if (y0 <= 0 && y1 >= 0) parts.push(`<line class="g-zero" x1="${left}" y1="${sy(0)}" x2="${right}" y2="${sy(0)}"/>`);
   parts.push(`<rect class="g-frame" x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/>`);
+  // Inner frames cut off anything past the bounds: the line exactly at the plot's edge, the points a little
+  // outside it, so a point on an edge stays whole.
+  const frame = (m: number, inner: string) => {
+    const fw = right - left + 2 * m, fh = bottom - top + 2 * m;
+    return `<svg x="${left - m}" y="${top - m}" width="${fw}" height="${fh}" viewBox="${left - m} ${top - m} ${fw} ${fh}">${inner}</svg>`;
+  };
+  const plot: string[] = [];
   if (g.line && g.points.length > 1) {
     const sorted = [...g.points].sort((a, b) => a.x - b.x);
-    parts.push(`<path class="g-line" d="${sorted.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join("")}"/>`);
+    parts.push(frame(0, `<path class="g-line" d="${sorted.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join("")}"/>`));
   }
+  const labels: string[] = [];
   for (const p of g.points) {
-    const cx = sx(p.x).toFixed(1), cy = sy(p.y).toFixed(1);
-    parts.push(`<circle class="g-point" cx="${cx}" cy="${cy}" r="4.5"><title>${escape(`(${num(p.x)}, ${num(p.y)})${p.label ? ` ${p.label}` : ""}`)}</title></circle>`);
+    const cx = sx(p.x), cy = sy(p.y);
+    plot.push(`<circle class="g-point" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5"><title>${escape(`(${num(p.x)}, ${num(p.y)})${p.label ? ` ${p.label}` : ""}`)}</title></circle>`);
+    if (!p.label || p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
     // Labels near the right or top edge go on the other side of their point, so they stay inside.
-    const flip = Number(cx) > W - pad.right - 90;
-    if (p.label) parts.push(`<text class="g-pointlabel" x="${Number(cx) + (flip ? -8 : 8)}" y="${Math.max(top + 12, Number(cy) - 8)}"${flip ? ' text-anchor="end"' : ""}>${escape(p.label)}</text>`);
+    const flip = cx > right - 90;
+    labels.push(`<text class="g-pointlabel" x="${(cx + (flip ? -8 : 8)).toFixed(1)}" y="${Math.max(top + 12, cy - 8).toFixed(1)}"${flip ? ' text-anchor="end"' : ""}>${escape(p.label)}</text>`);
   }
+  parts.push(frame(6, plot.join("")), ...labels);
   if (g.xLabel) parts.push(`<text class="g-label" x="${(left + right) / 2}" y="${H - 6}" text-anchor="middle">${escape(g.xLabel)}</text>`);
   if (g.yLabel) parts.push(`<text class="g-label" transform="translate(14 ${(top + bottom) / 2}) rotate(-90)" text-anchor="middle">${escape(g.yLabel)}</text>`);
   const summary = `Graph of ${g.points.length} point${g.points.length === 1 ? "" : "s"}${g.xLabel || g.yLabel ? `: ${g.yLabel || "y"} against ${g.xLabel || "x"}` : ""}`;
