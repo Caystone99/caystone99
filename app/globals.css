@@ -326,8 +326,6 @@ a { color: inherit; }
 .prose pre { overflow-x: auto; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--code-bg); }
 .prose pre code { padding: 0; background: none; font-size: 13.5px; line-height: 1.6; }
 .prose hr { border: 0; border-top: 1px solid var(--line); margin: 2.2em 0; }
-.prose table { width: 100%; border-collapse: collapse; font-size: 15px; }
-.prose th, .prose td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
 .note-media { margin: 1.6em 0; }
 .note-media img, .note-media video { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); background: #000; }
 .note-media figcaption { margin-top: 8px; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-3); }
@@ -572,3 +570,18 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .cell-actions { display: inline-flex; align-items: center; gap: 4px; }
 .cell-actions .tool:hover { color: var(--danger); }
 .graph-fields .cell-actions { align-self: flex-start; }
+
+/* Tables: a header row (and column) set apart, light rules between cells. On a phone a wide table scrolls. */
+.prose .table-scroll, .editor-doc .tableWrapper { overflow-x: auto; margin: 1.4em 0; }
+.prose table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.5; border: 1px solid var(--line-2); border-radius: 10px; }
+.prose th, .prose td { min-width: 80px; padding: 8px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.prose th { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); font-weight: 500; }
+.prose th > * + *, .prose td > * + * { margin-top: 0.5em; }
+.prose th p, .prose td p { margin: 0; }
+.editor-doc table { table-layout: fixed; }
+.editor-doc td, .editor-doc th { position: relative; }
+.editor-doc .selectedCell::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
+.table-bar { margin-top: -6px; }
+.table-bar-name { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; font-family: var(--font-mono), monospace; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.tool-danger:hover:not(:disabled) { color: var(--danger); }
+.table-bar-delete { flex: none; padding: 0 8px; white-space: nowrap; }

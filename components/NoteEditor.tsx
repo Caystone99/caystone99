@@ -1,18 +1,18 @@
 "use client";
 
-import type { Editor } from "@tiptap/core";
+import type { ChainedCommands, Editor } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import Highlight from "@tiptap/extension-highlight";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
+import { TableKit } from "@tiptap/extension-table";
 import Youtube from "@tiptap/extension-youtube";
 import { Placeholder } from "@tiptap/extensions";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import type { SuggestionProps } from "@tiptap/suggestion";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { presign, remove, save } from "@/app/write/actions";
 import type { Note } from "@/lib/db";
@@ -32,7 +32,6 @@ type Slash = { items: Block[]; index: number; left: number; top: number; pick: (
 // headings, lists, callouts, code cells, equations, graphs, photos and video, and drag a block's grip to move it.
 // Cmd/Ctrl+K adds a link, Cmd/Ctrl+S saves. Photos and video upload straight to the bucket; drop or paste them in, too.
 export default function NoteEditor({ note, topics, notes, uploads }: Props) {
-  const router = useRouter();
   const [id, setId] = useState(note?.id);
   const [title, setTitle] = useState(note?.title ?? "");
   const [slug, setSlug] = useState(note?.slug ?? "");
@@ -80,6 +79,7 @@ export default function NoteEditor({ note, topics, notes, uploads }: Props) {
       Superscript,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TableKit.configure({ table: { resizable: false } }),
       Youtube.configure({ nocookie: true, modestBranding: true, width: 640, height: 360 }),
       Media,
       Callout,
@@ -126,9 +126,9 @@ export default function NoteEditor({ note, topics, notes, uploads }: Props) {
       saved.current = { body, title };
       setId(r.id); setSlug(r.slug); setStatus(r.status);
       setMessage({ tone: "ok", text: r.status === "published" ? "Published." : "Draft saved." });
-      // A new note gets its own address without reloading the editor (which would lose this message).
+      // A new note gets its own address without reloading the editor, which would lose this message and the undo
+      // history. Nothing else needs refreshing: saving already refreshes the pages that show notes.
       if (!id) window.history.replaceState(null, "", `/write/${r.id}`);
-      router.refresh();
     });
   }
 
@@ -218,6 +218,7 @@ export default function NoteEditor({ note, topics, notes, uploads }: Props) {
           <button type="button" className="btn" disabled={pending} onClick={() => submit("published")}>{status === "published" ? "Update" : "Publish"}</button>
         </span>
         {editor && <Toolbar editor={editor} actions={actions.current} onLink={openLink} />}
+        {editor && <TableBar editor={editor} />}
         {youtube !== null && (
           <form className="toolbar-prompt" onSubmit={embedYoutube}>
             <Icon name="video" />
@@ -379,6 +380,47 @@ function Toolbar({ editor, actions, onLink }: { editor: Editor; actions: EditorA
       <span className="toolbar-sep toolbar-push" />
       {tool("undo", "Undo ⌘Z", "undo", () => editor.chain().focus().undo().run(), !state.undo)}
       {tool("redo", "Redo ⌘⇧Z or ⌘Y", "redo", () => editor.chain().focus().redo().run(), !state.redo)}
+    </div>
+  );
+}
+
+const tableTools: { key: string; label: string; icon: IconName; run: (c: ChainedCommands) => ChainedCommands; danger?: boolean }[] = [
+  { key: "rowAbove", label: "Add a row above", icon: "rowAbove", run: (c) => c.addRowBefore() },
+  { key: "rowBelow", label: "Add a row below", icon: "rowBelow", run: (c) => c.addRowAfter() },
+  { key: "colLeft", label: "Add a column to the left", icon: "colLeft", run: (c) => c.addColumnBefore() },
+  { key: "colRight", label: "Add a column to the right", icon: "colRight", run: (c) => c.addColumnAfter() },
+  { key: "rowDelete", label: "Delete this row", icon: "rowDelete", run: (c) => c.deleteRow(), danger: true },
+  { key: "colDelete", label: "Delete this column", icon: "colDelete", run: (c) => c.deleteColumn(), danger: true },
+  { key: "headerRow", label: "Header row on or off", icon: "headerRow", run: (c) => c.toggleHeaderRow() },
+  { key: "headerCol", label: "Header column on or off", icon: "headerCol", run: (c) => c.toggleHeaderColumn() },
+  { key: "merge", label: "Merge selected cells, or split one", icon: "merge", run: (c) => c.mergeOrSplit() },
+];
+
+// While the cursor is in a table: rows and columns in and out, headers, merging. Tab moves to the next cell,
+// and Tab in the last cell adds a row.
+function TableBar({ editor }: { editor: Editor }) {
+  const state = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      inTable: editor.isActive("table"),
+      can: Object.fromEntries(tableTools.map((t) => [t.key, t.run(editor.can().chain()).run()])) as Record<string, boolean>,
+    }),
+  });
+  if (!state.inTable) return null;
+  return (
+    <div className="toolbar table-bar" role="toolbar" aria-label="Table">
+      <span className="table-bar-name"><Icon name="table" />Table</span>
+      <span className="toolbar-sep" />
+      {tableTools.map((t) => (
+        <button key={t.key} type="button" className={`tool${t.danger ? " tool-danger" : ""}`} aria-label={t.label} title={t.label} disabled={!state.can[t.key]}
+          onMouseDown={(e) => e.preventDefault()} onClick={() => t.run(editor.chain().focus()).run()}>
+          <Icon name={t.icon} />
+        </button>
+      ))}
+      <span className="toolbar-sep toolbar-push" />
+      <button type="button" className="btn-link danger table-bar-delete" onMouseDown={(e) => e.preventDefault()} onClick={() => editor.chain().focus().deleteTable().run()}>
+        Delete table
+      </button>
     </div>
   );
 }

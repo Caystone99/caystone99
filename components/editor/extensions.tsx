@@ -51,6 +51,8 @@ export const blocks: Block[] = [
     } },
   { key: "graph", label: "Graph", hint: "Points on axes", icon: "graph", keywords: "plot chart points data scatter",
     run: (e) => e.chain().focus().command(afterSelectedBlock).insertContent({ type: "graph" }).run() },
+  { key: "table", label: "Table", hint: "Rows and columns", icon: "table", keywords: "grid rows columns spreadsheet",
+    run: (e) => e.chain().focus().command(afterSelectedBlock).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
   { key: "divider", label: "Divider", hint: "A line across", icon: "divider", keywords: "hr rule separator",
     run: (e) => e.chain().focus().command(afterSelectedBlock).setHorizontalRule().run() },
   { key: "media", label: "Photo or video", hint: "Upload from your computer", icon: "media", keywords: "image picture upload footage",

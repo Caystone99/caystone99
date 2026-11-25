@@ -10,10 +10,12 @@ import { renderMarkdown } from "./markdown";
 // The editor saves HTML. Before it's shown, everything outside what the editor makes is dropped: no scripts,
 // styles or event handlers, links only to web, mail or this site, and embeds only from YouTube. Equations, graphs
 // and code are stored as their source and drawn after that (see `draw`), so what's drawn never meets the sanitiser.
+// Tables keep their cells (and merged cells' spans) but not the editor's column widths.
 const options: sanitizeHtml.IOptions = {
   allowedTags: [
     "p", "br", "h2", "h3", "strong", "em", "u", "s", "sub", "sup", "code", "mark", "a", "blockquote", "pre", "hr",
     "ul", "ol", "li", "label", "input", "div", "span", "aside", "figure", "figcaption", "img", "video", "iframe",
+    "table", "thead", "tbody", "tr", "th", "td",
   ],
   allowedAttributes: {
     a: ["href", "target", "rel"],
@@ -21,6 +23,8 @@ const options: sanitizeHtml.IOptions = {
     video: ["src", "controls", "playsinline", "preload"],
     iframe: ["src", "width", "height", "allowfullscreen", "allow", "loading", "title"],
     ol: ["start"],
+    th: ["colspan", "rowspan"],
+    td: ["colspan", "rowspan"],
     ul: ["data-type"],
     li: ["data-type", "data-checked"],
     input: ["type", "checked", "disabled"],
@@ -85,7 +89,9 @@ function draw(html: string) {
       return `<figure class="note-graph">${graphSvg(graph)}${rest}</figure>`;
     })
     .replace(/<pre(?: data-title="([^"]*)")?><code(?: class="language-([\w+#.-]+)")?>([\s\S]*?)<\/code><\/pre>/g, (_, title, language, source) =>
-      code(decode(source), language, title && decode(title)));
+      code(decode(source), language, title && decode(title)))
+    // A wide table scrolls sideways on its own rather than widening the page.
+    .replace(/<table>/g, '<div class="table-scroll"><table>').replace(/<\/table>/g, "</table></div>");
 }
 
 export function noteHtml(note: Pick<Note, "body" | "format">) {

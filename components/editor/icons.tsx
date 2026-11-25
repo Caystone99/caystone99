@@ -37,6 +37,16 @@ const paths = {
   graph: "M2.5 2.5v11h11M5 10h1v1H5zM7.5 7h1v1h-1zM10 8h1v1h-1zM12 4h1v1h-1z",
   external: "M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v4h-9v-9h4",
   edit: "M10.5 2.5l3 3-8 8h-3v-3z",
+  table: "M2.5 3h11v10h-11zM2.5 6.5h11M2.5 9.8h11M6.2 3v10M9.8 3v10",
+  rowAbove: "M2.5 8h11v5h-11zM2.5 10.5h11M8 1.5v4.5M5.8 3.8h4.4",
+  rowBelow: "M2.5 3h11v5h-11zM2.5 5.5h11M8 10v4.5M5.8 12.2h4.4",
+  colLeft: "M8 2.5h5v11H8zM10.5 2.5v11M1.5 8h4.5M3.8 5.8v4.4",
+  colRight: "M3 2.5h5v11H3zM5.5 2.5v11M10 8h4.5M12.2 5.8v4.4",
+  rowDelete: "M2.5 5h11v6h-11zM6 6.8l4 2.4M10 6.8 6 9.2",
+  colDelete: "M5 2.5h6v11H5zM6.8 6l2.4 4M9.2 6l-2.4 4",
+  headerRow: "M2.5 3h11v10h-11zM2.5 6.5h11M3.5 4.7h9",
+  headerCol: "M2.5 3h11v10h-11zM6.2 3v10M4.3 4v8",
+  merge: "M2.5 3h11v10h-11zM5 8h6M9.5 6.5 11 8l-1.5 1.5M6.5 6.5 5 8l1.5 1.5",
 } as const;
 
 export type IconName = keyof typeof paths;
