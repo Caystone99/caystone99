@@ -569,3 +569,6 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .notes-section > .label, .drafts .section-head { margin-bottom: 14px; }
 .drafts-count { margin-left: 6px; color: var(--ink-3); }
 .drafts .section-head .label { margin: 0; }
+.cell-actions { display: inline-flex; align-items: center; gap: 4px; }
+.cell-actions .tool:hover { color: var(--danger); }
+.graph-fields .cell-actions { align-self: flex-start; }

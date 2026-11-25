@@ -2,6 +2,7 @@
 
 import katex from "katex";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "./icons";
 
 // LaTeX for an equation, typed or picked. Each symbol is a snippet; "|" marks where the cursor lands, so
 // picking a fraction leaves you typing its top.
@@ -56,7 +57,9 @@ export function renderMath(latex: string, display: boolean): { html: string; err
   }
 }
 
-export default function MathInput({ latex, display, onChange, onDone }: { latex: string; display: boolean; onChange: (latex: string) => void; onDone: () => void }) {
+type Props = { latex: string; display: boolean; onChange: (latex: string) => void; onDone: () => void; onRemove: () => void };
+
+export default function MathInput({ latex, display, onChange, onDone, onRemove }: Props) {
   const [tab, setTab] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
   // Where the cursor goes once a picked symbol is in.
@@ -86,13 +89,18 @@ export default function MathInput({ latex, display, onChange, onDone }: { latex:
         onKeyDown={(e) => {
           // Enter finishes an inline equation; a block takes new lines, and finishes with Cmd/Ctrl+Enter.
           if (e.key === "Escape" || (e.key === "Enter" && (!display || e.metaKey || e.ctrlKey))) { e.preventDefault(); onDone(); }
+          // Backspace in an empty field takes the equation away, like backspacing over an empty line.
+          if (e.key === "Backspace" && !latex) { e.preventDefault(); onRemove(); }
         }} />
       {error && <p className="math-error" role="status">{error}</p>}
       <div className="math-tabs" role="tablist" aria-label="Symbols">
         {palette.map((g, i) => (
           <button key={g.name} type="button" role="tab" aria-selected={i === tab} className={`math-tab${i === tab ? " is-on" : ""}`} onClick={() => setTab(i)}>{g.name}</button>
         ))}
-        <button type="button" className="btn btn-sm math-done" onClick={onDone}>Done</button>
+        <span className="cell-actions math-done">
+          <button type="button" className="btn btn-sm" onClick={onDone}>Done</button>
+          <button type="button" className="tool" aria-label="Delete equation" title="Delete equation" onClick={onRemove}><Icon name="trash" /></button>
+        </span>
       </div>
       <div className="math-palette">
         {palette[tab].items.map(([label, snippet], i) => (

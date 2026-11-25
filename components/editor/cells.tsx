@@ -2,6 +2,7 @@
 
 import { InputRule, Node, type Editor } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { closeHistory } from "@tiptap/pm/history";
 import { TextSelection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
@@ -19,10 +20,13 @@ import MathInput, { renderMath } from "./MathInput";
 const openCell = new WeakMap<Editor, number>();
 
 // Open while being edited; closes on Done, Escape or a click anywhere else. Opens by itself when the cell is
-// new (empty, added while writing) or reached with the arrow keys.
-function useEditing({ editor, selected, empty, getPos }: { editor: Editor; selected: boolean; empty: boolean; getPos: () => number | undefined }) {
+// new (empty, added while writing) or reached with the arrow keys. A cell closed with nothing in it is removed,
+// so an equation or graph added by mistake doesn't linger as a blank.
+function useEditing({ editor, selected, empty, getPos, size }: { editor: Editor; selected: boolean; empty: boolean; getPos: () => number | undefined; size: number }) {
   const [editing, setEditing] = useState(() => (empty && editor.isFocused) || (openCell.has(editor) && openCell.get(editor) === getPos()));
   const root = useRef<HTMLElement>(null);
+  const emptyRef = useRef(empty);
+  emptyRef.current = empty;
   useEffect(() => { if (selected) setEditing(true); }, [selected]);
   useEffect(() => {
     const pos = getPos();
@@ -31,12 +35,35 @@ function useEditing({ editor, selected, empty, getPos }: { editor: Editor; selec
   }, [editing, editor, getPos]);
   useEffect(() => {
     if (!editing) return;
-    const away = (e: PointerEvent) => { if (!root.current?.contains(e.target as globalThis.Node)) setEditing(false); };
+    const away = (e: PointerEvent) => {
+      if (root.current?.contains(e.target as globalThis.Node)) return;
+      if (emptyRef.current) remove(editor, getPos, size, false);
+      else setEditing(false);
+    };
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
   }, [editing]);
-  return { editing, setEditing, root };
+  // Done, Escape: back to writing after the cell, or where it was if it's removed for being empty.
+  const close = () => {
+    if (emptyRef.current) return remove(editor, getPos, size);
+    setEditing(false);
+    after(editor, getPos, size);
+  };
+  return { editing, setEditing, root, close, remove: () => remove(editor, getPos, size) };
 }
+
+// Takes the cell out of the note. With `focus`, the cursor goes where it was; without, it stays wherever the
+// writer just clicked.
+const remove = (editor: Editor, getPos: () => number | undefined, size: number, focus = true) => {
+  const pos = getPos();
+  if (typeof pos !== "number") return;
+  openCell.delete(editor);
+  // Its own undo step, so Cmd/Ctrl+Z brings back just the cell, however quickly it followed the last edit.
+  const tr = closeHistory(editor.state.tr.delete(pos, pos + size));
+  if (focus) tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos, tr.doc.content.size)), -1));
+  editor.view.dispatch(tr);
+  if (focus) editor.view.focus();
+};
 
 // Back to writing, just after the cell: on the next line, which is added if there isn't one to write on. Waits
 // for the cell's editor to close first, so its field doesn't take the focus with it.
@@ -56,9 +83,8 @@ const after = (editor: Editor, getPos: () => number | undefined, size: number) =
 
 function MathBlockView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
   const latex = node.attrs.latex as string;
-  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !latex, getPos });
+  const { editing, setEditing, root, close, remove } = useEditing({ editor, selected, empty: !latex.trim(), getPos, size: node.nodeSize });
   const shown = latex.trim() ? renderMath(latex, true) : null;
-  const done = () => { setEditing(false); after(editor, getPos, node.nodeSize); };
   return (
     <NodeViewWrapper ref={root} className={`math-cell${editing ? " is-editing" : ""}`} data-drag-handle="">
       <div className="math-show" onClick={() => setEditing(true)} title="Click to edit">
@@ -66,16 +92,15 @@ function MathBlockView({ node, updateAttributes, selected, editor, getPos }: Rea
           : shown.error ? <span className="math-bad">{latex}</span>
           : <span dangerouslySetInnerHTML={{ __html: shown.html }} />}
       </div>
-      {editing && <MathInput latex={latex} display onChange={(v) => updateAttributes({ latex: v })} onDone={done} />}
+      {editing && <MathInput latex={latex} display onChange={(v) => updateAttributes({ latex: v })} onDone={close} onRemove={remove} />}
     </NodeViewWrapper>
   );
 }
 
 function MathInlineView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
   const latex = node.attrs.latex as string;
-  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !latex, getPos });
+  const { editing, setEditing, root, close, remove } = useEditing({ editor, selected, empty: !latex.trim(), getPos, size: node.nodeSize });
   const shown = latex.trim() ? renderMath(latex, false) : null;
-  const done = () => { setEditing(false); after(editor, getPos, node.nodeSize); };
   return (
     <NodeViewWrapper as="span" ref={root} className={`math-inline${editing ? " is-editing" : ""}`}>
       <span className="math-show" onClick={() => setEditing(true)} title="Click to edit">
@@ -83,7 +108,7 @@ function MathInlineView({ node, updateAttributes, selected, editor, getPos }: Re
           : shown.error ? <span className="math-bad">{latex}</span>
           : <span dangerouslySetInnerHTML={{ __html: shown.html }} />}
       </span>
-      {editing && <span className="math-pop" contentEditable={false}><MathInput latex={latex} display={false} onChange={(v) => updateAttributes({ latex: v })} onDone={done} /></span>}
+      {editing && <span className="math-pop" contentEditable={false}><MathInput latex={latex} display={false} onChange={(v) => updateAttributes({ latex: v })} onDone={close} onRemove={remove} /></span>}
     </NodeViewWrapper>
   );
 }
@@ -144,14 +169,15 @@ export const MathInline = Node.create({
 function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
   const graph = readGraph(node.attrs.graph);
   const caption = node.attrs.caption as string;
-  const { editing, setEditing, root } = useEditing({ editor, selected, empty: !graph.points.length, getPos });
+  // Empty means nothing at all set: no points, names, bounds or caption.
+  const empty = !graph.points.length && !graph.xLabel && !graph.yLabel && !caption && [graph.xMin, graph.xMax, graph.yMin, graph.yMax].every((b) => b === null);
+  const { editing, setEditing, root, close, remove } = useEditing({ editor, selected, empty, getPos, size: node.nodeSize });
   // The points as typed, kept apart from the stored ones so a half-written line isn't thrown away. When the stored
   // points change some other way (an undo, say), the text follows.
   const stored = pointsText(graph.points);
   const [text, setText] = useState(stored);
   useEffect(() => { if (pointsText(parsePoints(text)) !== stored) setText(stored); }, [stored]);
   const set = (next: Partial<Graph>) => updateAttributes({ graph: { ...graph, ...next } });
-  const done = () => { setEditing(false); after(editor, getPos, node.nodeSize); };
 
   // Clicking the graph while editing adds a point there.
   function add(e: React.MouseEvent<HTMLDivElement>) {
@@ -175,7 +201,7 @@ function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNo
             <span className="label">Points: x, y and an optional label, one per line. Or click the graph.</span>
             <textarea className="input" rows={5} value={text} spellCheck={false} autoFocus placeholder={"0, 0, start\n1, 2\n2, 3.5"}
               onChange={(e) => { setText(e.target.value); set({ points: parsePoints(e.target.value) }); }}
-              onKeyDown={(e) => { if (e.key === "Escape") done(); }} />
+              onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
           </label>
           <div className="graph-fields">
             {(["x", "y"] as const).map((a) => (
@@ -190,7 +216,10 @@ function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNo
               </div>
             ))}
             <label className="graph-check"><input type="checkbox" checked={graph.line} onChange={(e) => set({ line: e.target.checked })} />Join the points</label>
-            <button type="button" className="btn btn-sm" onClick={done}>Done</button>
+            <span className="cell-actions">
+              <button type="button" className="btn btn-sm" onClick={close}>Done</button>
+              <button type="button" className="tool" aria-label="Delete graph" title="Delete graph" onClick={remove}><Icon name="trash" /></button>
+            </span>
           </div>
         </div>
       ) : !graph.points.length && <p className="cell-empty graph-empty">No points yet. Click to add some.</p>}
