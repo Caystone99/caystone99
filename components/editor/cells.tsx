@@ -7,9 +7,9 @@ import { TextSelection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { languageLabel, languages, lowlight } from "@/lib/code";
-import { emptyGraph, graphSvg, H, layout, parsePoints, pointsText, readGraph, W, type Graph } from "@/lib/graph";
+import { at, emptyGraph, graphSvg, H, layout, marksText, parseMarks, parsePoints, pointsText, readGraph, W, type End, type Graph, type Mark } from "@/lib/graph";
 import Dropdown from "../Dropdown";
-import { Icon } from "./icons";
+import { Icon, type IconName } from "./icons";
 import MathInput, { renderMath } from "./MathInput";
 
 // The cells that hold more than text: equations, graphs and code. Each shows what will be published and opens
@@ -22,7 +22,7 @@ const openCell = new WeakMap<Editor, number>();
 // Open while being edited; closes on Done, Escape or a click anywhere else. Opens by itself when the cell is
 // new (empty, added while writing) or reached with the arrow keys. A cell closed with nothing in it is removed,
 // so an equation or graph added by mistake doesn't linger as a blank.
-function useEditing({ editor, selected, empty, getPos, size }: { editor: Editor; selected: boolean; empty: boolean; getPos: () => number | undefined; size: number }) {
+export function useEditing({ editor, selected, empty, getPos, size }: { editor: Editor; selected: boolean; empty: boolean; getPos: () => number | undefined; size: number }) {
   const [editing, setEditing] = useState(() => (empty && editor.isFocused) || (openCell.has(editor) && openCell.get(editor) === getPos()));
   const root = useRef<HTMLElement>(null);
   const emptyRef = useRef(empty);
@@ -170,39 +170,89 @@ function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNo
   const graph = readGraph(node.attrs.graph);
   const caption = node.attrs.caption as string;
   // Empty means nothing at all set: no points, names, bounds or caption.
-  const empty = !graph.points.length && !graph.xLabel && !graph.yLabel && !caption && [graph.xMin, graph.xMax, graph.yMin, graph.yMax].every((b) => b === null);
+  const empty = !graph.points.length && !graph.marks.length && !graph.xLabel && !graph.yLabel && !caption && [graph.xMin, graph.xMax, graph.yMin, graph.yMax].every((b) => b === null);
   const { editing, setEditing, root, close, remove } = useEditing({ editor, selected, empty, getPos, size: node.nodeSize });
   // The points as typed, kept apart from the stored ones so a half-written line isn't thrown away. When the stored
   // points change some other way (an undo, say), the text follows.
   const stored = pointsText(graph.points);
   const [text, setText] = useState(stored);
   useEffect(() => { if (pointsText(parsePoints(text)) !== stored) setText(stored); }, [stored]);
+  // The lines and arrows as typed, kept the same way.
+  const storedMarks = marksText(graph.marks);
+  const [markText, setMarkText] = useState(storedMarks);
+  useEffect(() => { if (marksText(parseMarks(markText, graph.points)) !== storedMarks) setMarkText(storedMarks); }, [storedMarks]);
   const set = (next: Partial<Graph>) => updateAttributes({ graph: { ...graph, ...next } });
+  // What a click on the graph does: add a point, or draw a line, arrow or vector from one click to the next.
+  const [tool, setTool] = useState<"point" | Mark["kind"]>("point");
+  const [pending, setPending] = useState<End | null>(null);
+  useEffect(() => { if (!editing) setPending(null); }, [editing]);
 
-  // Clicking the graph while editing adds a point there.
-  function add(e: React.MouseEvent<HTMLDivElement>) {
+  function click(e: React.MouseEvent<HTMLDivElement>) {
     if (!editing) return setEditing(true);
     const svg = (e.currentTarget as HTMLElement).querySelector("svg");
     if (!svg) return;
     const r = svg.getBoundingClientRect();
-    const p = layout(graph).invert(((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H);
-    const points = [...graph.points, p];
-    setText(pointsText(points));
-    set({ points });
+    const px = ((e.clientX - r.left) / r.width) * W, py = ((e.clientY - r.top) / r.height) * H;
+    const { invert, sx, sy } = layout(graph);
+    if (tool === "point") {
+      const points = [...graph.points, invert(px, py)];
+      setText(pointsText(points));
+      return set({ points });
+    }
+    // An end lands on a point when the click is near one, and then follows it; anywhere else it stays put.
+    let near = -1, best = 14;
+    graph.points.forEach((p, i) => { const d = Math.hypot(sx(p.x) - px, sy(p.y) - py); if (d < best) { best = d; near = i; } });
+    const end: End = near >= 0 ? { point: near } : invert(px, py);
+    if (!pending) return setPending(end);
+    const marks = [...graph.marks, { kind: tool, from: pending, to: end }];
+    setPending(null);
+    setMarkText(marksText(marks));
+    set({ marks });
   }
+
+  const tools: { key: typeof tool; label: string; icon: IconName }[] = [
+    { key: "point", label: "Point", icon: "point" },
+    { key: "line", label: "Line", icon: "lineTool" },
+    { key: "arrow", label: "Arrow", icon: "arrowTool" },
+    { key: "vector", label: "Vector", icon: "vectorTool" },
+  ];
+  const hint = tool === "point" ? "Click the graph to add a point."
+    : pending ? `Now click where it ends. Esc to cancel.` : `Click where the ${tool} starts: on a point to join it, or anywhere.`;
 
   return (
     <NodeViewWrapper as="figure" ref={root} className={`note-graph${editing ? " is-editing" : ""}`} data-drag-handle="">
-      <div className={`graph-show${editing ? " is-adding" : ""}`} onClick={add} title={editing ? "Click to add a point" : "Click to edit"}
-        dangerouslySetInnerHTML={{ __html: graphSvg(graph) }} />
+      {editing && (
+        <div className="graph-tools" onMouseDown={(e) => e.stopPropagation()}>
+          <span className="graph-tool-set" role="radiogroup" aria-label="Clicking the graph adds">
+            {tools.map((t) => (
+              <button key={t.key} type="button" role="radio" aria-checked={tool === t.key} className={`graph-tool${tool === t.key ? " is-on" : ""}`}
+                onClick={() => { setTool(t.key); setPending(null); }}>
+                <Icon name={t.icon} />{t.label}
+              </button>
+            ))}
+          </span>
+          <span className="graph-hint">{hint}</span>
+        </div>
+      )}
+      <div className={`graph-show${editing ? " is-adding" : ""}`} onClick={click} title={editing ? undefined : "Click to edit"}
+        tabIndex={editing ? -1 : undefined} onKeyDown={(e) => { if (e.key === "Escape" && pending) { e.stopPropagation(); setPending(null); } }}
+        dangerouslySetInnerHTML={{ __html: graphSvg(graph, editing ? { numbers: true, pending: pending ? at(graph, pending) : undefined } : {}) }} />
       {editing ? (
         <div className="graph-edit" onMouseDown={(e) => e.stopPropagation()}>
-          <label className="graph-points">
-            <span className="label">Points: x, y and an optional label, one per line. Or click the graph.</span>
-            <textarea className="input" rows={5} value={text} spellCheck={false} autoFocus placeholder={"0, 0, start\n1, 2\n2, 3.5"}
-              onChange={(e) => { setText(e.target.value); set({ points: parsePoints(e.target.value) }); }}
-              onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
-          </label>
+          <div className="graph-texts">
+            <label className="graph-points">
+              <span className="label">Points: x, y and an optional label, one per line</span>
+              <textarea className="input" rows={5} value={text} spellCheck={false} autoFocus placeholder={"0, 0, start\n1, 2\n2, 3.5"}
+                onChange={(e) => { setText(e.target.value); set({ points: parsePoints(e.target.value) }); }}
+                onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
+            </label>
+            <label className="graph-points">
+              <span className="label">Lines, arrows and vectors: P1 is the first point; or give x, y</span>
+              <textarea className="input" rows={3} value={markText} spellCheck={false} placeholder={"arrow P1 -> P3 force\nline 0, 0 -> 2, 4\nvector 0, 0 -> 3, 4 v"}
+                onChange={(e) => { setMarkText(e.target.value); set({ marks: parseMarks(e.target.value, graph.points) }); }}
+                onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
+            </label>
+          </div>
           <div className="graph-fields">
             {(["x", "y"] as const).map((a) => (
               <div key={a} className="field">

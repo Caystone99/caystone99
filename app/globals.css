@@ -585,3 +585,62 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .table-bar-name { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; font-family: var(--font-mono), monospace; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
 .tool-danger:hover:not(:disabled) { color: var(--danger); }
 .table-bar-delete { flex: none; padding: 0 8px; white-space: nowrap; }
+
+/* Lines, arrows and vectors on graphs, and the graph's tools while writing. */
+.graph .g-mark line { stroke: var(--ink-2); stroke-width: 1.75; stroke-linecap: round; }
+.graph .g-mark polygon { fill: var(--ink-2); }
+.graph .g-mark.is-vector line { stroke: var(--work); stroke-width: 2.5; }
+.graph .g-mark.is-vector polygon { fill: var(--work); }
+.graph .g-marklabel { fill: var(--ink-2); font-family: var(--font-sans), sans-serif; font-size: 12.5px; font-style: italic; }
+.graph .g-marklabel.is-vector { fill: var(--work); font-weight: 500; }
+.graph .g-num { fill: var(--ink-3); font-size: 10px; }
+.graph .g-pending { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 3; }
+.graph-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 10px; font-size: 13px; line-height: 1.4; }
+.graph-tool-set { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--menu); }
+.graph-tool { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 0; border-radius: 7px; background: none; color: var(--ink-2); font: inherit; cursor: pointer; }
+.graph-tool:hover { color: var(--ink); }
+.graph-tool.is-on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.graph-hint { color: var(--ink-3); }
+.graph-texts { display: flex; flex-direction: column; gap: 12px; }
+.graph-show:focus { outline: none; }
+
+/* Drawings: shapes in the site's colours, which follow the theme. */
+.note-drawing { margin: 1.6em 0; }
+.drawing { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--code-bg); font-family: var(--font-sans), sans-serif; }
+.d-ink { --c: var(--ink); } .d-accent { --c: var(--accent); } .d-go { --c: var(--go); }
+.d-work { --c: var(--work); } .d-explore { --c: var(--explore); } .d-danger { --c: var(--danger); }
+.drawing .d-shape { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.drawing .d-shape.is-filled rect, .drawing .d-shape.is-filled ellipse { fill: color-mix(in srgb, var(--c) 18%, transparent); }
+.drawing .d-shape.is-dashed line { stroke-dasharray: 8 7; }
+.drawing .d-head { fill: var(--c); stroke: none; }
+.drawing .d-text { fill: var(--c); stroke: none; }
+.drawing .d-label { fill: var(--ink); stroke: none; font-size: 15px; }
+.note-drawing figcaption { margin-top: 8px; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-3); }
+
+/* The drawing while it's being drawn. */
+.drawing-show { cursor: pointer; }
+.drawing-edit { display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5; }
+.drawing-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 5px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bar); }
+.drawing-bar .toolbar-push { flex: 1; }
+.drawing-colours { display: inline-flex; gap: 4px; padding: 0 4px; }
+.drawing-swatch { width: 20px; height: 20px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--c); cursor: pointer; box-shadow: inset 0 0 0 2px var(--bar); }
+.drawing-swatch.is-on { border-color: var(--c); }
+.drawing-size { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-3); }
+.drawing-size-input { width: 62px; min-height: 30px; padding: 0 8px; font-family: var(--font-mono), monospace; font-size: 12.5px; }
+.drawing-canvas { touch-action: none; outline: none; border-color: var(--accent); cursor: crosshair; user-select: none; -webkit-user-select: none; }
+.drawing-canvas.tool-select { cursor: default; }
+.drawing-canvas.tool-text { cursor: text; }
+.drawing-canvas:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.drawing-canvas .d-grid { fill: var(--line-2); }
+.drawing-canvas .d-selection rect { fill: none; stroke: var(--accent); stroke-width: 1.25; stroke-dasharray: 4 4; pointer-events: none; }
+.drawing-canvas .d-handle { fill: var(--paper); stroke: var(--accent); stroke-width: 2; cursor: nwse-resize; }
+.drawing-canvas .d-handle-ne, .drawing-canvas .d-handle-sw { cursor: nesw-resize; }
+.drawing-canvas .d-handle-p1, .drawing-canvas .d-handle-p2 { cursor: move; }
+.drawing-panel { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 14px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--menu); }
+.drawing-words { flex: 1 1 220px; }
+.drawing-words .input { padding: 6px 10px; resize: vertical; }
+.drawing-fields { display: inline-flex; gap: 6px; }
+.drawing-number { display: inline-flex; flex-direction: column; gap: 2px; font-family: var(--font-mono), monospace; font-size: 11px; color: var(--ink-3); }
+.drawing-number .input { width: 62px; min-height: 32px; padding: 0 8px; font-family: var(--font-mono), monospace; font-size: 12.5px; }
+.drawing-actions { display: inline-flex; gap: 2px; margin-left: auto; }
+.drawing-hint { margin: 0; color: var(--ink-3); font-size: 13px; }

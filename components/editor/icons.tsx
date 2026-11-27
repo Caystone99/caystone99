@@ -47,6 +47,22 @@ const paths = {
   headerRow: "M2.5 3h11v10h-11zM2.5 6.5h11M3.5 4.7h9",
   headerCol: "M2.5 3h11v10h-11zM6.2 3v10M4.3 4v8",
   merge: "M2.5 3h11v10h-11zM5 8h6M9.5 6.5 11 8l-1.5 1.5M6.5 6.5 5 8l1.5 1.5",
+  point: "M8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM2.5 13.5v-11M2.5 13.5h11",
+  lineTool: "M3 13 13 3",
+  arrowTool: "M3 13 13 3M7.5 3H13v5.5",
+  vectorTool: "M3 13 12 4M8 3.5h4.5V8M2.5 13.5h.1",
+  select: "M4 2.5v10l3-2.8 2 4.3 1.8-.8-2-4.2 4.2-.3z",
+  rect: "M2.5 4h11v8h-11z",
+  ellipse: "M8 3.5c3 0 5.5 2 5.5 4.5S11 12.5 8 12.5 2.5 10.5 2.5 8 5 3.5 8 3.5z",
+  pen: "M2.5 12c2-4 3.5-6 5-6s.5 4 2 4 2-3 4-6",
+  textTool: "M3 3.5h10M8 3.5v9.5M6 13h4",
+  front: "M5.5 5.5h8v8h-8zM2.5 10.5v-8h8",
+  back: "M2.5 2.5h8v8h-8zM13.5 5.5v8h-8",
+  forward: "M8 13V5M4.5 8.5 8 5l3.5 3.5M3 2.5h10",
+  backward: "M8 3v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10",
+  grid: "M2.5 2.5h11v11h-11zM6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11",
+  fill: "M2.5 4h11v8h-11zM5 10.5l4-4M5 7.5l1.5-1.5M8 10.5l3-3",
+  dashed: "M2 8h2.5M6.8 8h2.5M11.5 8H14",
 } as const;
 
 export type IconName = keyof typeof paths;

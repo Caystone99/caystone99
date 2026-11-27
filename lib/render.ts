@@ -4,6 +4,7 @@ import katex from "katex";
 import sanitizeHtml from "sanitize-html";
 import { languageLabel, lowlight } from "./code";
 import type { Note } from "./db";
+import { drawingSvg, readDrawing } from "./drawing";
 import { graphSvg, readGraph } from "./graph";
 import { renderMarkdown } from "./markdown";
 
@@ -31,11 +32,11 @@ const options: sanitizeHtml.IOptions = {
     div: ["data-youtube-video", "data-math"],
     span: ["data-math"],
     aside: ["data-callout"],
-    figure: ["class", "data-graph"],
+    figure: ["class", "data-graph", "data-drawing"],
     pre: ["data-title"],
     code: ["class"],
   },
-  allowedClasses: { figure: ["note-media", "note-graph"], code: ["language-*"] },
+  allowedClasses: { figure: ["note-media", "note-graph", "note-drawing"], code: ["language-*"] },
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: { img: ["https"], video: ["https"] },
   allowedIframeHostnames: ["www.youtube-nocookie.com", "www.youtube.com"],
@@ -87,6 +88,11 @@ function draw(html: string) {
       let graph;
       try { graph = readGraph(JSON.parse(decode(data))); } catch { return ""; }
       return `<figure class="note-graph">${graphSvg(graph)}${rest}</figure>`;
+    })
+    .replace(/<figure class="note-drawing" data-drawing="([^"]*)">([\s\S]*?)<\/figure>/g, (_, data, rest) => {
+      let drawing;
+      try { drawing = readDrawing(JSON.parse(decode(data))); } catch { return ""; }
+      return `<figure class="note-drawing">${drawingSvg(drawing)}${rest}</figure>`;
     })
     .replace(/<pre(?: data-title="([^"]*)")?><code(?: class="language-([\w+#.-]+)")?>([\s\S]*?)<\/code><\/pre>/g, (_, title, language, source) =>
       code(decode(source), language, title && decode(title)))

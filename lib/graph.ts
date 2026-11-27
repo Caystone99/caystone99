@@ -1,16 +1,21 @@
+import { arrowHead, escape, fixed, shorten } from "./svg";
+
 // Points on a graph, drawn as SVG. The editor and the published note both draw with graphSvg, so a graph looks
 // the same in each. Colours come from CSS classes (g-*), which follow the light and dark themes.
 export type Point = { x: number; y: number; label?: string };
+// Lines, arrows and vectors. Each end is either one of the points (by its place in the list, so it moves with
+// the point) or a free position on the graph.
+export type End = { point: number } | { x: number; y: number };
+export type Mark = { kind: "line" | "arrow" | "vector"; from: End; to: End; label?: string };
+export const markKinds = ["line", "arrow", "vector"] as const;
 // Bounds left empty (null) follow the points; set ones fix that edge of the graph.
 export type Bounds = { xMin: number | null; xMax: number | null; yMin: number | null; yMax: number | null };
-export type Graph = { points: Point[]; line: boolean; xLabel: string; yLabel: string } & Bounds;
+export type Graph = { points: Point[]; marks: Mark[]; line: boolean; xLabel: string; yLabel: string } & Bounds;
 
-export const emptyGraph: Graph = { points: [], line: false, xLabel: "", yLabel: "", xMin: null, xMax: null, yMin: null, yMax: null };
+export const emptyGraph: Graph = { points: [], marks: [], line: false, xLabel: "", yLabel: "", xMin: null, xMax: null, yMin: null, yMax: null };
 
 export const W = 640, H = 400;
 const pad = { left: 58, right: 20, top: 18, bottom: 48 };
-
-const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 // A graph from what was stored, dropping anything that isn't a finite point.
 export function readGraph(value: unknown): Graph {
@@ -20,8 +25,20 @@ export function readGraph(value: unknown): Graph {
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
     .slice(0, 500);
   const bound = (v: unknown) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+  // An end pointing at a point that's gone, or at no finite place, drops its mark.
+  const end = (e: unknown): End | null => {
+    const v = (e && typeof e === "object" ? e : {}) as Record<string, unknown>;
+    if ("point" in v) return Number.isInteger(v.point) && (v.point as number) >= 0 && (v.point as number) < points.length ? { point: v.point as number } : null;
+    const x = Number(v.x), y = Number(v.y);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  };
+  const marks = (Array.isArray(g.marks) ? g.marks : []).flatMap((m): Mark[] => {
+    const from = end(m?.from), to = end(m?.to);
+    if (!from || !to || !markKinds.includes(m.kind)) return [];
+    return [{ kind: m.kind, from, to, ...(m.label ? { label: String(m.label).slice(0, 40) } : {}) }];
+  }).slice(0, 100);
   return {
-    points, line: !!g.line, xLabel: String(g.xLabel ?? "").slice(0, 80), yLabel: String(g.yLabel ?? "").slice(0, 80),
+    points, marks, line: !!g.line, xLabel: String(g.xLabel ?? "").slice(0, 80), yLabel: String(g.yLabel ?? "").slice(0, 80),
     xMin: bound(g.xMin), xMax: bound(g.xMax), yMin: bound(g.yMin), yMax: bound(g.yMax),
   };
 }
@@ -35,6 +52,33 @@ export function parsePoints(text: string): Point[] {
     return [label.join(", ") ? { ...p, label: label.join(", ") } : p];
   });
 }
+
+// "arrow P1 -> P3 force", "line 0, 0 -> 2, 4" or "vector 0,0 -> 3,4 v", one per line. Pn is the nth point;
+// anything else is x, y. Lines that can't be read are skipped.
+const numPattern = String.raw`-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?`;
+const endPattern = String.raw`(p\d+|${numPattern}\s*,\s*${numPattern})`;
+const markLine = new RegExp(String.raw`^\s*(line|arrow|vector)\s+${endPattern}\s*->\s*${endPattern}\s*(.*)$`, "i");
+
+export function parseMarks(text: string, points: Point[]): Mark[] {
+  const end = (s: string): End | null => {
+    const p = /^p(\d+)$/i.exec(s.trim());
+    if (p) return Number(p[1]) >= 1 && Number(p[1]) <= points.length ? { point: Number(p[1]) - 1 } : null;
+    const [x, y] = s.split(",").map((v) => Number(v.trim()));
+    return { x, y };
+  };
+  return text.split("\n").flatMap((l) => {
+    const m = markLine.exec(l);
+    const from = m && end(m[2]), to = m && end(m[3]);
+    if (!m || !from || !to) return [];
+    return [{ kind: m[1].toLowerCase() as Mark["kind"], from, to, ...(m[4].trim() ? { label: m[4].trim() } : {}) }];
+  });
+}
+
+const endText = (e: End) => ("point" in e ? `P${e.point + 1}` : `${e.x}, ${e.y}`);
+export const marksText = (marks: Mark[]) => marks.map((m) => `${m.kind} ${endText(m.from)} -> ${endText(m.to)}${m.label ? ` ${m.label}` : ""}`).join("\n");
+
+// Where an end is, in the graph's numbers.
+export const at = (g: Graph, e: End): { x: number; y: number } | undefined => ("point" in e ? g.points[e.point] : e);
 
 export const pointsText = (points: Point[]) => points.map((p) => [p.x, p.y, p.label].filter((v) => v !== undefined && v !== "").join(", ")).join("\n");
 
@@ -68,8 +112,10 @@ function axis(values: number[], lo: number | null, hi: number | null, count: num
 
 // Where everything goes: the axes' ticks and the functions between data and drawing.
 export function layout(g: Graph) {
-  const xt = axis(g.points.map((p) => p.x), g.xMin, g.xMax, 8);
-  const yt = axis(g.points.map((p) => p.y), g.yMin, g.yMax, 6);
+  // Free ends of lines and arrows count too, so an open axis stretches to show them.
+  const free = g.marks.flatMap((m) => [m.from, m.to]).filter((e): e is { x: number; y: number } => !("point" in e));
+  const xt = axis([...g.points, ...free].map((p) => p.x), g.xMin, g.xMax, 8);
+  const yt = axis([...g.points, ...free].map((p) => p.y), g.yMin, g.yMax, 6);
   const [x0, x1, y0, y1] = [xt.min, xt.max, yt.min, yt.max];
   const sx = (x: number) => pad.left + ((x - x0) / (x1 - x0)) * (W - pad.left - pad.right);
   const sy = (y: number) => H - pad.bottom - ((y - y0) / (y1 - y0)) * (H - pad.top - pad.bottom);
@@ -82,9 +128,12 @@ export function layout(g: Graph) {
   return { xt, yt, x0, x1, y0, y1, sx, sy, invert };
 }
 
+// While writing: the points numbered (P1, P2…) for typing lines and arrows, and where a line being drawn starts.
+type Extras = { numbers?: boolean; pending?: { x: number; y: number } };
+
 const num = (v: number) => (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 1e-3) ? v.toExponential(1) : String(Number(v.toPrecision(6))));
 
-export function graphSvg(g: Graph) {
+export function graphSvg(g: Graph, extras: Extras = {}) {
   const { xt, yt, x0, x1, y0, y1, sx, sy } = layout(g);
   const left = pad.left, right = W - pad.right, top = pad.top, bottom = H - pad.bottom;
   const parts: string[] = [];
@@ -106,6 +155,24 @@ export function graphSvg(g: Graph) {
     parts.push(frame(0, `<path class="g-line" d="${sorted.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join("")}"/>`));
   }
   const labels: string[] = [];
+  // Lines, arrows and vectors, under the points they join.
+  for (const m of g.marks) {
+    const a = at(g, m.from), b = at(g, m.to);
+    if (!a || !b) continue;
+    const ax = sx(a.x), ay = sy(a.y), bx = sx(b.x), by = sy(b.y);
+    const head = m.kind === "line" ? 0 : m.kind === "vector" ? 12 : 10;
+    const tip = head ? shorten(ax, ay, bx, by, head * 0.8) : { x: bx, y: by };
+    plot.push(`<g class="g-mark is-${m.kind}"><line x1="${fixed(ax)}" y1="${fixed(ay)}" x2="${fixed(tip.x)}" y2="${fixed(tip.y)}"/>${head ? `<polygon points="${arrowHead(ax, ay, bx, by, head)}"/>` : ""}</g>`);
+    if (m.label) {
+      // Beside the middle of the line, off to one side of it.
+      const len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len;
+      labels.push(`<text class="g-marklabel is-${m.kind}" x="${fixed((ax + bx) / 2 + nx * 12)}" y="${fixed((ay + by) / 2 + ny * 12 + 4)}" text-anchor="middle">${escape(m.label)}</text>`);
+    }
+  }
+  if (extras.numbers) {
+    for (const [i, p] of g.points.entries()) labels.push(`<text class="g-num" x="${fixed(sx(p.x) - 7)}" y="${fixed(sy(p.y) + 16)}" text-anchor="end">P${i + 1}</text>`);
+  }
+  if (extras.pending) plot.push(`<circle class="g-pending" cx="${fixed(sx(extras.pending.x))}" cy="${fixed(sy(extras.pending.y))}" r="7"/>`);
   for (const p of g.points) {
     const cx = sx(p.x), cy = sy(p.y);
     plot.push(`<circle class="g-point" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5"><title>${escape(`(${num(p.x)}, ${num(p.y)})${p.label ? ` ${p.label}` : ""}`)}</title></circle>`);
@@ -117,6 +184,6 @@ export function graphSvg(g: Graph) {
   parts.push(frame(6, plot.join("")), ...labels);
   if (g.xLabel) parts.push(`<text class="g-label" x="${(left + right) / 2}" y="${H - 6}" text-anchor="middle">${escape(g.xLabel)}</text>`);
   if (g.yLabel) parts.push(`<text class="g-label" transform="translate(14 ${(top + bottom) / 2}) rotate(-90)" text-anchor="middle">${escape(g.yLabel)}</text>`);
-  const summary = `Graph of ${g.points.length} point${g.points.length === 1 ? "" : "s"}${g.xLabel || g.yLabel ? `: ${g.yLabel || "y"} against ${g.xLabel || "x"}` : ""}`;
+  const summary = `Graph of ${g.points.length} point${g.points.length === 1 ? "" : "s"}${g.marks.length ? ` and ${g.marks.length} line${g.marks.length === 1 ? "" : "s"}` : ""}${g.xLabel || g.yLabel ? `: ${g.yLabel || "y"} against ${g.xLabel || "x"}` : ""}`;
   return `<svg class="graph" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escape(summary)}">${parts.join("")}</svg>`;
 }

@@ -20,6 +20,7 @@ import { renderMarkdown, slugify } from "@/lib/markdown";
 import Dropdown from "./Dropdown";
 import BlockHandle from "./editor/BlockHandle";
 import { CodeCell, GraphBlock, MathBlock, MathInline } from "./editor/cells";
+import { DrawingBlock } from "./editor/Drawing";
 import { afterSelectedBlock, blocks, Callout, Media, SlashCommand, type Block, type EditorActions } from "./editor/extensions";
 import { Icon, type IconName } from "./editor/icons";
 import LinkEditor, { LinkPeek, type LinkTarget, type NoteLink } from "./editor/LinkEditor";
@@ -87,6 +88,7 @@ export default function NoteEditor({ note, topics, notes, uploads }: Props) {
       MathBlock,
       MathInline,
       GraphBlock,
+      DrawingBlock,
       SlashCommand.configure({ actions: () => actions.current, render: slashMenu(setSlash, slashRef) }),
     ],
     // Older notes were written in Markdown; they open here as formatted text and are saved in the new form.
