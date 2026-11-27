@@ -9,6 +9,8 @@
   --glass: rgba(8, 12, 19, 0.6);
   --field: rgba(4, 6, 10, 0.6);
   --code-bg: rgba(4, 6, 10, 0.7);
+  /* Behind graphs and drawings: solid, so a shadowed line's outline (in this colour) hides what it crosses. */
+  --plot: #05070b;
   --bar: rgba(8, 12, 19, 0.92);
   --menu: #0b0f17;
   --shadow: rgba(0, 0, 0, 0.55);
@@ -38,6 +40,7 @@
   --glass: rgba(255, 255, 255, 0.7);
   --field: #ffffff;
   --code-bg: #eceef2;
+  --plot: #eceef2;
   --bar: rgba(255, 255, 255, 0.94);
   --menu: #ffffff;
   --shadow: rgba(18, 22, 29, 0.14);
@@ -357,7 +360,7 @@ a { color: inherit; }
 
 /* Graphs: points on axes, drawn as SVG by lib/graph.ts. */
 .note-graph { margin: 1.6em 0; }
-.graph { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--code-bg); font-family: var(--font-mono), monospace; }
+.graph { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--plot); font-family: var(--font-mono), monospace; }
 .graph .g-grid { stroke: var(--line); stroke-width: 1; }
 .graph .g-zero { stroke: var(--line-2); stroke-width: 1.5; }
 .graph .g-frame { fill: none; stroke: var(--line-2); }
@@ -439,6 +442,8 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .media-caption { display: block; width: 100%; margin-top: 8px; padding: 0; border: 0; background: none; font-family: var(--font-mono), monospace; font-size: 12px; color: var(--ink-3); }
 .media-caption:focus { outline: none; color: var(--ink-2); }
 .media-caption::placeholder { color: var(--ink-3); opacity: 0.6; }
+/* Example text in empty fields: quiet, but readable. */
+.input::placeholder, .math-field::placeholder { color: var(--ink-3); opacity: 0.85; }
 
 /* The + and grip beside the block under the pointer. */
 .block-handle { position: absolute; left: 4px; z-index: 4; display: flex; gap: 1px; }
@@ -524,17 +529,9 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .math-symbol .katex { font-size: 1em; }
 
 .editor-doc .note-graph.is-editing .graph { border-color: var(--accent); }
-.graph-show { cursor: pointer; }
-.graph-show.is-adding { cursor: crosshair; }
 .graph-empty { margin: 8px 0 0; }
-.graph-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 12px; padding: 14px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--menu); font-size: 14px; line-height: 1.5; }
-.graph-points { display: flex; flex-direction: column; gap: 6px; }
-.graph-points .input { padding: 8px 12px; font-family: var(--font-mono), monospace; font-size: 13px; resize: vertical; }
-.graph-fields { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
-.graph-fields .btn { align-self: flex-start; }
 .graph-check { display: flex; align-items: center; gap: 8px; color: var(--ink-2); cursor: pointer; }
 .graph-check input { accent-color: var(--accent); }
-@media (max-width: 640px) { .graph-edit { grid-template-columns: 1fr; } }
 
 .editor-doc .code-cell-head { padding-left: 4px; }
 .editor-doc .code-cell-head .dropdown-compact .dropdown-button { min-height: 28px; font-family: var(--font-mono), monospace; font-size: 12px; }
@@ -559,9 +556,6 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .link-keys { margin-left: auto; font-family: var(--font-mono), monospace; font-size: 11px; color: var(--ink-3); }
 .bubble-link { align-items: center; }
 .link-peek { max-width: 260px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); font-size: 13px; text-underline-offset: 3px; }
-.graph-bounds { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-3); }
-.graph-bound { width: 0; flex: 1; min-height: 32px; font-family: var(--font-mono), monospace; font-size: 12.5px; }
-.graph-bound::placeholder { color: var(--ink-3); opacity: 0.7; }
 
 /* Drafts, for the writer: on /notes when signed in, and first on /write. */
 .notes-section > .label, .drafts .section-head { margin-bottom: 14px; }
@@ -569,7 +563,6 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .drafts .section-head .label { margin: 0; }
 .cell-actions { display: inline-flex; align-items: center; gap: 4px; }
 .cell-actions .tool:hover { color: var(--danger); }
-.graph-fields .cell-actions { align-self: flex-start; }
 
 /* Tables: a header row (and column) set apart, light rules between cells. On a phone a wide table scrolls. */
 .prose .table-scroll, .editor-doc .tableWrapper { overflow-x: auto; margin: 1.4em 0; }
@@ -587,12 +580,6 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .table-bar-delete { flex: none; padding: 0 8px; white-space: nowrap; }
 
 /* Lines, arrows and vectors on graphs, and the graph's tools while writing. */
-.graph .g-mark line { stroke: var(--ink-2); stroke-width: 1.75; stroke-linecap: round; }
-.graph .g-mark polygon { fill: var(--ink-2); }
-.graph .g-mark.is-vector line { stroke: var(--work); stroke-width: 2.5; }
-.graph .g-mark.is-vector polygon { fill: var(--work); }
-.graph .g-marklabel { fill: var(--ink-2); font-family: var(--font-sans), sans-serif; font-size: 12.5px; font-style: italic; }
-.graph .g-marklabel.is-vector { fill: var(--work); font-weight: 500; }
 .graph .g-num { fill: var(--ink-3); font-size: 10px; }
 .graph .g-pending { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 3 3; }
 .graph-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 10px; font-size: 13px; line-height: 1.4; }
@@ -600,13 +587,12 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .graph-tool { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 0; border-radius: 7px; background: none; color: var(--ink-2); font: inherit; cursor: pointer; }
 .graph-tool:hover { color: var(--ink); }
 .graph-tool.is-on { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.graph-hint { color: var(--ink-3); }
-.graph-texts { display: flex; flex-direction: column; gap: 12px; }
-.graph-show:focus { outline: none; }
+/* Its own line, two lines tall, so the graph doesn't shift when the instructions change mid-drag. */
+.graph-hint { flex-basis: 100%; min-height: 2.8em; color: var(--ink-3); }
 
 /* Drawings: shapes in the site's colours, which follow the theme. */
 .note-drawing { margin: 1.6em 0; }
-.drawing { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--code-bg); font-family: var(--font-sans), sans-serif; }
+.drawing { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--plot); font-family: var(--font-sans), sans-serif; }
 .d-ink { --c: var(--ink); } .d-accent { --c: var(--accent); } .d-go { --c: var(--go); }
 .d-work { --c: var(--work); } .d-explore { --c: var(--explore); } .d-danger { --c: var(--danger); }
 .drawing .d-shape { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -644,3 +630,60 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .drawing-number .input { width: 62px; min-height: 32px; padding: 0 8px; font-family: var(--font-mono), monospace; font-size: 12.5px; }
 .drawing-actions { display: inline-flex; gap: 2px; margin-left: auto; }
 .drawing-hint { margin: 0; color: var(--ink-3); font-size: 13px; }
+
+/* Lines, arrows and vectors on graphs: grey (vectors orange) unless given a colour. A shadow lays a wider copy in
+   the graph's background colour underneath, so a line stays clear where it crosses another. */
+.graph .g-mark > line { stroke: var(--ink-2); stroke-width: 1.75; stroke-linecap: round; }
+.graph .g-mark > polygon { fill: var(--ink-2); }
+.graph .g-mark.is-vector > line { stroke: var(--work); stroke-width: 2.5; }
+.graph .g-mark.is-vector > polygon { fill: var(--work); }
+.graph .g-mark.has-colour > line { stroke: var(--c); }
+.graph .g-mark.has-colour > polygon { fill: var(--c); }
+.graph .g-halo line { stroke: var(--plot); stroke-width: 10; stroke-linecap: round; }
+.graph .g-halo polygon { fill: var(--plot); stroke: var(--plot); stroke-width: 6; stroke-linejoin: round; }
+.graph .g-mark.is-preview { opacity: 0.6; }
+.graph .g-mark.is-selected > line { stroke-width: 3; }
+.graph .g-handle { fill: var(--paper); stroke: var(--accent); stroke-width: 2; }
+.graph .g-marklabel { fill: var(--ink-2); font-family: var(--font-sans), sans-serif; font-size: 12.5px; font-style: italic; }
+.graph .g-marklabel.is-vector { fill: var(--work); font-weight: 500; }
+.graph .g-marklabel.has-colour { fill: var(--c); }
+.drawing .d-halo > * { stroke: var(--plot); stroke-width: 10; fill: none; }
+.drawing .d-halo .d-head { fill: var(--plot); stroke-width: 6; }
+.drawing .has-shadow { filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)); }
+
+/* The graph while it's being edited: tools above it, then one panel in quiet sections. */
+.graph-show { cursor: pointer; }
+.graph-show.is-editing { cursor: crosshair; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+.graph-show.is-editing.tool-select { cursor: default; }
+.graph-show.is-editing:focus-visible .graph { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.graph-look { display: inline-flex; align-items: center; gap: 4px; }
+.graph-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 18px 22px; margin-top: 12px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--menu); font-size: 14px; line-height: 1.5; }
+.graph-sec { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.graph-sec-wide, .graph-foot { grid-column: 1 / -1; }
+.graph-sec-title { margin: 0; font-size: 13px; font-weight: 500; color: var(--ink); }
+.graph-sec-title span { margin-left: 6px; font-weight: 400; color: var(--ink-3); }
+.graph-sec textarea.input { min-height: 0; padding: 8px 12px; font-family: var(--font-mono), monospace; font-size: 13px; line-height: 1.6; resize: vertical; }
+.graph-edit .input { min-height: 34px; font-size: 13.5px; }
+.graph-axis { display: grid; grid-template-columns: 16px minmax(0, 1fr) 70px auto 70px; align-items: center; gap: 8px; }
+.graph-axis-name { font-family: var(--font-mono), monospace; font-size: 13px; color: var(--ink-3); }
+.graph-axis-to { font-size: 12.5px; color: var(--ink-3); }
+.graph-bound { padding: 0 8px; font-family: var(--font-mono), monospace; font-size: 12.5px; }
+.graph-check { display: flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--ink-2); font-size: 13.5px; cursor: pointer; }
+.graph-check input { accent-color: var(--accent); }
+.graph-marks { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.graph-mark { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 4px 6px; border: 1px solid transparent; border-radius: 10px; }
+.graph-mark.is-picked { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.graph-mark .dropdown-compact .dropdown-value { min-width: 64px; }
+.graph-mark .dropdown-compact .dropdown-list { position: absolute; top: calc(100% + 4px); left: 0; margin-top: 0; }
+.graph-end { width: 92px; padding: 0 8px; font-family: var(--font-mono), monospace; font-size: 12.5px; }
+.graph-end.is-bad { border-color: var(--danger); }
+.graph-mark-to { color: var(--ink-3); }
+.graph-mark-label { width: 0; flex: 1 1 110px; }
+.graph-none { margin: 0; color: var(--ink-3); font-size: 13.5px; }
+.graph-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); }
+.swatches { display: inline-flex; gap: 3px; padding: 0 2px; }
+.swatch { width: 18px; height: 18px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 2px var(--menu); cursor: pointer; }
+.swatch.is-on { border-color: var(--c, var(--ink-2)); }
+.swatch-default { background: none; border: 1px dashed var(--ink-3); box-shadow: none; }
+.swatch-default.is-on { border: 2px solid var(--ink-2); }
+@media (max-width: 760px) { .graph-edit { grid-template-columns: 1fr; } }

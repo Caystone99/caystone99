@@ -81,7 +81,7 @@ function DrawingView({ node, updateAttributes, selected, editor, getPos }: React
 
   function down(e: React.PointerEvent<SVGSVGElement>) {
     e.preventDefault();
-    svg.current!.focus();
+    svg.current!.focus({ preventScroll: true });
     svg.current!.setPointerCapture(e.pointerId);
     const { x, y } = at(e);
     const handle = (e.target as Element).closest("[data-handle]")?.getAttribute("data-handle") as Handle | null;
@@ -95,7 +95,7 @@ function DrawingView({ node, updateAttributes, selected, editor, getPos }: React
       if (s) { gesture.current = { type: "move", x0: x, y0: y, start: s }; setDraft(d); }
       return;
     }
-    const base = { id: newId(), colour };
+    const base = { id: newId(), colour, shadow: false };
     if (tool === "text") {
       const next = { ...d, shapes: [...d.shapes, { ...base, kind: "text" as const, x: snap(x), y: snap(y), text: "", size: 18 }] };
       save(next);
@@ -304,6 +304,8 @@ function DrawingView({ node, updateAttributes, selected, editor, getPos }: React
                 {(sel.kind === "line" || sel.kind === "arrow") && (
                   <button type="button" className={`tool${sel.dashed ? " is-on" : ""}`} aria-pressed={sel.dashed} aria-label="Dashed" title="Dashed" onClick={() => edit({ dashed: !sel.dashed })}><Icon name="dashed" /></button>
                 )}
+                <button type="button" className={`tool${sel.shadow ? " is-on" : ""}`} aria-pressed={sel.shadow} aria-label="Shadow" title="Shadow: sets it apart from what's under it"
+                  onClick={() => edit({ shadow: !sel.shadow })}><Icon name="shadow" /></button>
                 <button type="button" className="tool" aria-label="Bring to front" title="Bring to front" onClick={() => arrange("front")}><Icon name="front" /></button>
                 <button type="button" className="tool" aria-label="Bring forward" title="Bring forward" onClick={() => arrange("forward")}><Icon name="forward" /></button>
                 <button type="button" className="tool" aria-label="Send backward" title="Send backward" onClick={() => arrange("backward")}><Icon name="backward" /></button>

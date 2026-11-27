@@ -63,6 +63,7 @@ const paths = {
   grid: "M2.5 2.5h11v11h-11zM6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11",
   fill: "M2.5 4h11v8h-11zM5 10.5l4-4M5 7.5l1.5-1.5M8 10.5l3-3",
   dashed: "M2 8h2.5M6.8 8h2.5M11.5 8H14",
+  shadow: "M3 11 11 3M5.5 13.5 13.5 5.5",
 } as const;
 
 export type IconName = keyof typeof paths;

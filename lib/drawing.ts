@@ -1,12 +1,13 @@
-import { arrowHead, escape, fixed, shorten } from "./svg";
+import { arrowHead, colours, escape, fixed, isColour, shorten, type Colour } from "./svg";
+
+export { colours, type Colour };
 
 // A drawing: shapes inside a fixed boundary, drawn as SVG. The editor and the published note both draw with
 // drawingSvg, so a drawing looks the same in each. Colours are names from the site's palette (d-*), so drawings
 // follow the light and dark themes.
-export const colours = ["ink", "accent", "go", "work", "explore", "danger"] as const;
-export type Colour = (typeof colours)[number];
-
-type Base = { id: string; colour: Colour };
+// A shadow sets a shape apart from what's under it: lines get an outline in the background's colour, so one
+// crossing another stays clear, and everything gets a soft drop shadow.
+type Base = { id: string; colour: Colour; shadow: boolean };
 export type Box = Base & { kind: "rect" | "ellipse"; x: number; y: number; w: number; h: number; fill: boolean; label: string };
 export type Segment = Base & { kind: "line" | "arrow"; x1: number; y1: number; x2: number; y2: number; dashed: boolean };
 export type Text = Base & { kind: "text"; x: number; y: number; text: string; size: number };
@@ -28,7 +29,7 @@ export function readDrawing(value: unknown): Drawing {
   const height = clamp(Math.round(n(d.height, emptyDrawing.height)), limits.min, limits.max);
   const shapes = (Array.isArray(d.shapes) ? d.shapes : []).slice(0, 500).flatMap((raw): Shape[] => {
     const s = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-    const base = { id: String(s.id || newId()).slice(0, 12), colour: colours.includes(s.colour as Colour) ? (s.colour as Colour) : "ink" };
+    const base = { id: String(s.id || newId()).slice(0, 12), colour: isColour(s.colour) ? s.colour : "ink", shadow: !!s.shadow };
     switch (s.kind) {
       case "rect": case "ellipse":
         return [{ ...base, kind: s.kind, x: n(s.x), y: n(s.y), w: Math.max(1, n(s.w, 1)), h: Math.max(1, n(s.h, 1)), fill: !!s.fill, label: String(s.label ?? "").slice(0, 120) }];
@@ -88,7 +89,9 @@ function lines(text: string, x: number, y: number, size: number, cls: string) {
 }
 
 export function shapeSvg(s: Shape, attrs = "") {
-  const c = `d-shape d-${s.colour}`;
+  const c = `d-shape d-${s.colour}${s.shadow ? " has-shadow" : ""}`;
+  // The outline that keeps a shadowed line clear of others: the same line, wider, in the background's colour.
+  const halo = (body: string) => (s.shadow ? `<g class="d-halo">${body}</g>` : "") + body;
   switch (s.kind) {
     case "rect": case "ellipse": {
       const body = s.kind === "rect"
@@ -98,13 +101,13 @@ export function shapeSvg(s: Shape, attrs = "") {
     }
     case "line": case "arrow": {
       const tip = s.kind === "arrow" ? shorten(s.x1, s.y1, s.x2, s.y2, 9) : { x: s.x2, y: s.y2 };
-      return `<g class="${c}${s.dashed ? " is-dashed" : ""}"${attrs}><line x1="${fixed(s.x1)}" y1="${fixed(s.y1)}" x2="${fixed(tip.x)}" y2="${fixed(tip.y)}"/>`
-        + (s.kind === "arrow" ? `<polygon class="d-head" points="${arrowHead(s.x1, s.y1, s.x2, s.y2, 12)}"/>` : "") + "</g>";
+      return `<g class="${c}${s.dashed ? " is-dashed" : ""}"${attrs}>` + halo(`<line x1="${fixed(s.x1)}" y1="${fixed(s.y1)}" x2="${fixed(tip.x)}" y2="${fixed(tip.y)}"/>`
+        + (s.kind === "arrow" ? `<polygon class="d-head" points="${arrowHead(s.x1, s.y1, s.x2, s.y2, 12)}"/>` : "")) + "</g>";
     }
     case "text":
       return s.text.trim() ? `<g class="${c}"${attrs}>${lines(s.text, s.x, s.y, s.size, "d-text")}</g>` : "";
     case "pen":
-      return `<g class="${c}"${attrs}><path class="d-pen" d="${s.points.map(([x, y], i) => `${i ? "L" : "M"}${fixed(x)} ${fixed(y)}`).join("")}"/></g>`;
+      return `<g class="${c}"${attrs}>${halo(`<path class="d-pen" d="${s.points.map(([x, y], i) => `${i ? "L" : "M"}${fixed(x)} ${fixed(y)}`).join("")}"/>`)}</g>`;
   }
 }
 

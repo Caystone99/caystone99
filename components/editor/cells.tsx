@@ -7,7 +7,8 @@ import { TextSelection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { languageLabel, languages, lowlight } from "@/lib/code";
-import { at, emptyGraph, graphSvg, H, layout, marksText, parseMarks, parsePoints, pointsText, readGraph, W, type End, type Graph, type Mark } from "@/lib/graph";
+import { at, emptyGraph, endText, graphSvg, H, layout, markKinds, parseEnd, parsePoints, pointsText, readGraph, W, type End, type Graph, type Mark } from "@/lib/graph";
+import { colours, type Colour } from "@/lib/svg";
 import Dropdown from "../Dropdown";
 import { Icon, type IconName } from "./icons";
 import MathInput, { renderMath } from "./MathInput";
@@ -35,13 +36,15 @@ export function useEditing({ editor, selected, empty, getPos, size }: { editor: 
   }, [editing, editor, getPos]);
   useEffect(() => {
     if (!editing) return;
+    // Judged by the click's path, taken before anything handles it: a cell that redraws itself on the click (a graph
+    // marking where a line starts) would otherwise look clicked from outside.
     const away = (e: PointerEvent) => {
-      if (root.current?.contains(e.target as globalThis.Node)) return;
+      if (root.current && e.composedPath().includes(root.current)) return;
       if (emptyRef.current) remove(editor, getPos, size, false);
       else setEditing(false);
     };
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
   }, [editing]);
   // Done, Escape: back to writing after the cell, or where it was if it's removed for being empty.
   const close = () => {
@@ -166,115 +169,307 @@ export const MathInline = Node.create({
   },
 });
 
-function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
-  const graph = readGraph(node.attrs.graph);
-  const caption = node.attrs.caption as string;
-  // Empty means nothing at all set: no points, names, bounds or caption.
-  const empty = !graph.points.length && !graph.marks.length && !graph.xLabel && !graph.yLabel && !caption && [graph.xMin, graph.xMax, graph.yMin, graph.yMax].every((b) => b === null);
-  const { editing, setEditing, root, close, remove } = useEditing({ editor, selected, empty, getPos, size: node.nodeSize });
-  // The points as typed, kept apart from the stored ones so a half-written line isn't thrown away. When the stored
-  // points change some other way (an undo, say), the text follows.
-  const stored = pointsText(graph.points);
-  const [text, setText] = useState(stored);
-  useEffect(() => { if (pointsText(parsePoints(text)) !== stored) setText(stored); }, [stored]);
-  // The lines and arrows as typed, kept the same way.
-  const storedMarks = marksText(graph.marks);
-  const [markText, setMarkText] = useState(storedMarks);
-  useEffect(() => { if (marksText(parseMarks(markText, graph.points)) !== storedMarks) setMarkText(storedMarks); }, [storedMarks]);
-  const set = (next: Partial<Graph>) => updateAttributes({ graph: { ...graph, ...next } });
-  // What a click on the graph does: add a point, or draw a line, arrow or vector from one click to the next.
-  const [tool, setTool] = useState<"point" | Mark["kind"]>("point");
-  const [pending, setPending] = useState<End | null>(null);
-  useEffect(() => { if (!editing) setPending(null); }, [editing]);
+type GraphTool = "select" | "point" | Mark["kind"];
+// What the pointer is doing on the graph between pressing and letting go.
+type GraphDrag =
+  | { type: "end"; mark: number; which: "from" | "to" }
+  | { type: "mark"; mark: number; px: number; py: number; start: Mark }
+  | { type: "point"; index: number }
+  | { type: "draw"; px: number; py: number; moved: boolean };
 
-  function click(e: React.MouseEvent<HTMLDivElement>) {
-    if (!editing) return setEditing(true);
-    const svg = (e.currentTarget as HTMLElement).querySelector("svg");
-    if (!svg) return;
-    const r = svg.getBoundingClientRect();
-    const px = ((e.clientX - r.left) / r.width) * W, py = ((e.clientY - r.top) / r.height) * H;
-    const { invert, sx, sy } = layout(graph);
+const graphTools: { key: GraphTool; label: string; icon: IconName; hint: string }[] = [
+  { key: "select", label: "Select", icon: "select", hint: "Click a line to select it, then drag it or its ends, or press Backspace to delete it. Drag points to move them." },
+  { key: "point", label: "Point", icon: "point", hint: "Click the graph to add a point." },
+  { key: "line", label: "Line", icon: "lineTool", hint: "" },
+  { key: "arrow", label: "Arrow", icon: "arrowTool", hint: "" },
+  { key: "vector", label: "Vector", icon: "vectorTool", hint: "" },
+];
+
+// How far a point (px, py) is from the segment between a and b, in drawing units.
+function toSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const l = (bx - ax) ** 2 + (by - ay) ** 2;
+  const t = l ? Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / l)) : 0;
+  return Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)));
+}
+
+function GraphView({ node, updateAttributes, selected, editor, getPos }: ReactNodeViewProps) {
+  const stored = readGraph(node.attrs.graph);
+  // While dragging, changes are kept here and saved when the pointer is let go: one undo step per drag.
+  const [draft, setDraft] = useState<Graph | null>(null);
+  const graph = draft ?? stored;
+  const caption = node.attrs.caption as string;
+  // Empty means nothing at all set: no points, lines, names, bounds or caption.
+  const empty = !stored.points.length && !stored.marks.length && !stored.xLabel && !stored.yLabel && !caption && [stored.xMin, stored.xMax, stored.yMin, stored.yMax].every((b) => b === null);
+  const { editing, setEditing, root, close, remove } = useEditing({ editor, selected, empty, getPos, size: node.nodeSize });
+  // The points as typed, kept apart from the stored ones so a half-written line isn't thrown away. When the points
+  // change some other way (a drag, an undo), the text follows.
+  const shown = pointsText(graph.points);
+  const [text, setText] = useState(shown);
+  useEffect(() => { if (pointsText(parsePoints(text)) !== shown) setText(shown); }, [shown]);
+  // Clicks, drags and deletions (`step`) are each their own undo step; typing undoes in runs, as writing does.
+  const set = (next: Partial<Graph>, step = false) => {
+    const pos = getPos();
+    if (!step || typeof pos !== "number") return updateAttributes({ graph: { ...stored, ...next } });
+    editor.view.dispatch(closeHistory(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, graph: { ...stored, ...next } })));
+  };
+
+  const [tool, setTool] = useState<GraphTool>(() => (stored.points.length || stored.marks.length ? "select" : "point"));
+  const [pending, setPending] = useState<End | null>(null);
+  const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
+  // How the next line drawn looks.
+  const [look, setLook] = useState<{ colour?: Colour; shadow: boolean }>({ shadow: false });
+  const drag = useRef<GraphDrag | null>(null);
+  const area = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (!editing) { setPending(null); setPicked(null); } }, [editing]);
+  if (picked !== null && picked >= graph.marks.length) setPicked(null);
+
+  // The pointer in the graph's drawing units, and the layout at the moment it was pressed (so the axes don't move
+  // under a drag that stretches them).
+  const frame = useRef(layout(graph));
+  function where(e: React.PointerEvent) {
+    const r = area.current!.querySelector("svg")!.getBoundingClientRect();
+    return { px: ((e.clientX - r.left) / r.width) * W, py: ((e.clientY - r.top) / r.height) * H };
+  }
+
+  // Where an end goes: onto a point when it's close to one (and then it follows the point), otherwise onto the
+  // grid. Alt turns snapping off.
+  function snapEnd(px: number, py: number, free: boolean, skip = -1): End {
+    const { sx, sy, invert } = frame.current;
+    if (!free) {
+      let near = -1, best = 14;
+      graph.points.forEach((p, i) => { const d = Math.hypot(sx(p.x) - px, sy(p.y) - py); if (i !== skip && d < best) { best = d; near = i; } });
+      if (near >= 0) return { point: near };
+    }
+    return invert(px, py, free ? 10 : 2);
+  }
+
+  const changeMark = (i: number, patch: Partial<Mark>, base = graph) => ({ ...base, marks: base.marks.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
+
+  function down(e: React.PointerEvent<HTMLDivElement>) {
+    if (!editing) return;
+    e.preventDefault();
+    area.current!.focus({ preventScroll: true });
+    area.current!.setPointerCapture(e.pointerId);
+    frame.current = layout(graph);
+    const { px, py } = where(e);
+    const { sx, sy, invert } = frame.current;
+    const ends = (m: Mark) => [at(graph, m.from), at(graph, m.to)].map((p) => p && { x: sx(p.x), y: sy(p.y) });
+
     if (tool === "point") {
       const points = [...graph.points, invert(px, py)];
       setText(pointsText(points));
-      return set({ points });
+      return set({ points }, true);
     }
-    // An end lands on a point when the click is near one, and then follows it; anywhere else it stays put.
-    let near = -1, best = 14;
-    graph.points.forEach((p, i) => { const d = Math.hypot(sx(p.x) - px, sy(p.y) - py); if (d < best) { best = d; near = i; } });
-    const end: End = near >= 0 ? { point: near } : invert(px, py);
-    if (!pending) return setPending(end);
-    const marks = [...graph.marks, { kind: tool, from: pending, to: end }];
-    setPending(null);
-    setMarkText(marksText(marks));
-    set({ marks });
+    if (tool !== "select") {
+      const end = snapEnd(px, py, e.altKey);
+      // A second click finishes a line started with a click; otherwise this starts one, which a drag can finish.
+      if (pending) return finish(end);
+      setPending(end);
+      drag.current = { type: "draw", px, py, moved: false };
+      return;
+    }
+    // The selected line's ends come first, then points, then any line under the pointer.
+    if (picked !== null) {
+      const [a, b] = ends(graph.marks[picked]);
+      const which = a && Math.hypot(a.x - px, a.y - py) < 10 ? "from" : b && Math.hypot(b.x - px, b.y - py) < 10 ? "to" : null;
+      if (which) { drag.current = { type: "end", mark: picked, which }; return setDraft(graph); }
+    }
+    const point = graph.points.findIndex((p) => Math.hypot(sx(p.x) - px, sy(p.y) - py) < 9);
+    if (point >= 0) { drag.current = { type: "point", index: point }; setPicked(null); return setDraft(graph); }
+    let found = -1, best = 8;
+    graph.marks.forEach((m, i) => {
+      const [a, b] = ends(m);
+      if (!a || !b) return;
+      const d = toSegment(px, py, a.x, a.y, b.x, b.y);
+      if (d <= best) { best = d; found = i; }
+    });
+    // Ties go to the line on top (drawn last).
+    if (found < 0) return setPicked(null);
+    setPicked(found);
+    drag.current = { type: "mark", mark: found, px, py, start: graph.marks[found] };
+    setDraft(graph);
   }
 
-  const tools: { key: typeof tool; label: string; icon: IconName }[] = [
-    { key: "point", label: "Point", icon: "point" },
-    { key: "line", label: "Line", icon: "lineTool" },
-    { key: "arrow", label: "Arrow", icon: "arrowTool" },
-    { key: "vector", label: "Vector", icon: "vectorTool" },
-  ];
-  const hint = tool === "point" ? "Click the graph to add a point."
-    : pending ? `Now click where it ends. Esc to cancel.` : `Click where the ${tool} starts: on a point to join it, or anywhere.`;
+  function move(e: React.PointerEvent<HTMLDivElement>) {
+    if (!editing) return;
+    const { px, py } = where(e);
+    const g = drag.current;
+    if (!g) {
+      if (pending) setHover(at(graph, snapEnd(px, py, e.altKey)) ?? null);
+      return;
+    }
+    const { invert, sx, sy } = frame.current;
+    if (g.type === "draw") {
+      if (Math.hypot(px - g.px, py - g.py) > 6) g.moved = true;
+      setHover(at(graph, snapEnd(px, py, e.altKey)) ?? null);
+    } else if (g.type === "end" && draft) {
+      const end = snapEnd(px, py, e.altKey);
+      setHover(at(draft, end) ?? null);
+      setDraft(changeMark(g.mark, { [g.which]: end }, draft));
+    } else if (g.type === "point" && draft) {
+      const p = invert(px, py, e.altKey ? 10 : 2);
+      setDraft({ ...draft, points: draft.points.map((q, i) => (i === g.index ? { ...q, ...p } : q)) });
+    } else if (g.type === "mark" && draft) {
+      // The whole line moves, and comes loose from any points it was joined to. Its start snaps (to a point or the
+      // grid) and the rest of the line keeps its shape.
+      const a = at(graph, g.start.from), b = at(graph, g.start.to);
+      if (!a || !b) return;
+      const from = snapEnd(sx(a.x) + px - g.px, sy(a.y) + py - g.py, e.altKey);
+      const f = at(draft, from)!;
+      setHover(f);
+      setDraft(changeMark(g.mark, { from, to: { x: Number((b.x + f.x - a.x).toPrecision(10)), y: Number((b.y + f.y - a.y).toPrecision(10)) } }, draft));
+    }
+  }
+
+  function up(e: React.PointerEvent<HTMLDivElement>) {
+    const g = drag.current;
+    drag.current = null;
+    setHover(null);
+    if (g?.type === "draw") {
+      // Pressed, dragged and let go: the line ends where the pointer did. A plain click waits for a second one.
+      if (g.moved) { const { px, py } = where(e); finish(snapEnd(px, py, e.altKey)); }
+      return;
+    }
+    if (draft) {
+      if (JSON.stringify(draft) !== JSON.stringify(stored)) set(draft, true);
+      setDraft(null);
+    }
+  }
+
+  function finish(to: End) {
+    if (!pending || tool === "select" || tool === "point") return;
+    setPending(null);
+    setHover(null);
+    // A click on the same spot doesn't leave a line of no length.
+    if (JSON.stringify(pending) === JSON.stringify(to)) return;
+    set({ marks: [...graph.marks, { kind: tool, from: pending, to, ...(look.colour ? { colour: look.colour } : {}), ...(look.shadow ? { shadow: true } : {}) }] }, true);
+    setPicked(graph.marks.length);
+  }
+
+  function deleteMark(i: number) {
+    set({ marks: graph.marks.filter((_, j) => j !== i) }, true);
+    setPicked(null);
+  }
+
+  function keys(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      if (pending) { setPending(null); setHover(null); } else if (picked !== null) setPicked(null); else close();
+    } else if ((e.key === "Backspace" || e.key === "Delete") && picked !== null) {
+      e.preventDefault();
+      deleteMark(picked);
+    }
+  }
+
+  const lineTool = tool === "line" || tool === "arrow" || tool === "vector";
+  const hint = lineTool
+    ? pending ? "Now click (or drag to) where it ends. Esc to cancel." : `Click where the ${tool} starts, or drag it out. Near a point, an end joins it. Alt: no snapping.`
+    : graphTools.find((t) => t.key === tool)!.hint;
+  const preview = lineTool && pending && hover ? { kind: tool, from: at(graph, pending) ?? hover, to: hover, ...look } : undefined;
 
   return (
-    <NodeViewWrapper as="figure" ref={root} className={`note-graph${editing ? " is-editing" : ""}`} data-drag-handle="">
+    <NodeViewWrapper as="figure" ref={root} className={`note-graph${editing ? " is-editing" : ""}`} {...(editing ? {} : { "data-drag-handle": "" })}>
       {editing && (
-        <div className="graph-tools" onMouseDown={(e) => e.stopPropagation()}>
-          <span className="graph-tool-set" role="radiogroup" aria-label="Clicking the graph adds">
-            {tools.map((t) => (
+        <div className="graph-tools">
+          <span className="graph-tool-set" role="radiogroup" aria-label="Graph tool">
+            {graphTools.map((t) => (
               <button key={t.key} type="button" role="radio" aria-checked={tool === t.key} className={`graph-tool${tool === t.key ? " is-on" : ""}`}
-                onClick={() => { setTool(t.key); setPending(null); }}>
+                onClick={() => { setTool(t.key); setPending(null); setHover(null); }}>
                 <Icon name={t.icon} />{t.label}
               </button>
             ))}
           </span>
+          {lineTool && (
+            <span className="graph-look" aria-label="How new lines look">
+              <Swatches value={look.colour} onChange={(colour) => setLook({ ...look, colour })} />
+              <button type="button" className={`tool${look.shadow ? " is-on" : ""}`} aria-pressed={look.shadow} aria-label="Shadow" title="Shadow: an outline that keeps it clear of lines it crosses"
+                onClick={() => setLook({ ...look, shadow: !look.shadow })}><Icon name="shadow" /></button>
+            </span>
+          )}
           <span className="graph-hint">{hint}</span>
         </div>
       )}
-      <div className={`graph-show${editing ? " is-adding" : ""}`} onClick={click} title={editing ? undefined : "Click to edit"}
-        tabIndex={editing ? -1 : undefined} onKeyDown={(e) => { if (e.key === "Escape" && pending) { e.stopPropagation(); setPending(null); } }}
-        dangerouslySetInnerHTML={{ __html: graphSvg(graph, editing ? { numbers: true, pending: pending ? at(graph, pending) : undefined } : {}) }} />
+      <div ref={area} className={`graph-show${editing ? ` is-editing tool-${tool}` : ""}`} tabIndex={editing ? 0 : undefined} title={editing ? undefined : "Click to edit"}
+        onClick={() => !editing && setEditing(true)} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+        onPointerLeave={() => !drag.current && setHover(null)} onKeyDown={keys} onDragStart={(e) => e.preventDefault()}
+        dangerouslySetInnerHTML={{ __html: graphSvg(graph, editing ? { numbers: true, pending: hover ?? (pending ? at(graph, pending) : undefined), preview, selected: picked } : {}) }} />
       {editing ? (
-        <div className="graph-edit" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="graph-texts">
-            <label className="graph-points">
-              <span className="label">Points: x, y and an optional label, one per line</span>
-              <textarea className="input" rows={5} value={text} spellCheck={false} autoFocus placeholder={"0, 0, start\n1, 2\n2, 3.5"}
-                onChange={(e) => { setText(e.target.value); set({ points: parsePoints(e.target.value) }); }}
-                onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
-            </label>
-            <label className="graph-points">
-              <span className="label">Lines, arrows and vectors: P1 is the first point; or give x, y</span>
-              <textarea className="input" rows={3} value={markText} spellCheck={false} placeholder={"arrow P1 -> P3 force\nline 0, 0 -> 2, 4\nvector 0, 0 -> 3, 4 v"}
-                onChange={(e) => { setMarkText(e.target.value); set({ marks: parseMarks(e.target.value, graph.points) }); }}
-                onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
-            </label>
-          </div>
-          <div className="graph-fields">
+        <div className="graph-edit">
+          <section className="graph-sec">
+            <h4 className="graph-sec-title">Points <span>x, y and a label if you like, one per line</span></h4>
+            <textarea className="input" rows={4} value={text} spellCheck={false} autoFocus={!stored.points.length} placeholder={"0, 0, start\n1, 2\n2, 3.5"} aria-label="Points"
+              onChange={(e) => { setText(e.target.value); set({ points: parsePoints(e.target.value) }); }}
+              onKeyDown={(e) => { if (e.key === "Escape") close(); }} />
+          </section>
+          <section className="graph-sec">
+            <h4 className="graph-sec-title">Axes <span>leave from and to empty to fit the points</span></h4>
             {(["x", "y"] as const).map((a) => (
-              <div key={a} className="field">
-                <span className="label">{a === "x" ? "Across (x)" : "Up (y)"}</span>
-                <input className="input" value={graph[`${a}Label`]} placeholder={a === "x" ? "Time (s)" : "Distance (m)"} aria-label={`${a} axis name`}
+              <div key={a} className="graph-axis">
+                <span className="graph-axis-name">{a}</span>
+                <input className="input" value={graph[`${a}Label`]} placeholder={a === "x" ? "Name, e.g. Time (s)" : "Name, e.g. Distance (m)"} aria-label={`${a} axis name`}
                   onChange={(e) => set({ [`${a}Label`]: e.target.value })} />
-                <span className="graph-bounds">
-                  from <BoundInput label={`${a} from`} value={graph[`${a}Min`]} onChange={(v) => set({ [`${a}Min`]: v })} />
-                  to <BoundInput label={`${a} to`} value={graph[`${a}Max`]} onChange={(v) => set({ [`${a}Max`]: v })} />
-                </span>
+                <BoundInput label={`${a} from`} value={graph[`${a}Min`]} onChange={(v) => set({ [`${a}Min`]: v })} />
+                <span className="graph-axis-to">to</span>
+                <BoundInput label={`${a} to`} value={graph[`${a}Max`]} onChange={(v) => set({ [`${a}Max`]: v })} />
               </div>
             ))}
-            <label className="graph-check"><input type="checkbox" checked={graph.line} onChange={(e) => set({ line: e.target.checked })} />Join the points</label>
-            <span className="cell-actions">
-              <button type="button" className="btn btn-sm" onClick={close}>Done</button>
-              <button type="button" className="tool" aria-label="Delete graph" title="Delete graph" onClick={remove}><Icon name="trash" /></button>
-            </span>
-          </div>
+            <label className="graph-check"><input type="checkbox" checked={graph.line} onChange={(e) => set({ line: e.target.checked })} />Join the points in order</label>
+          </section>
+          <section className="graph-sec graph-sec-wide">
+            <h4 className="graph-sec-title">Lines, arrows and vectors <span>draw them on the graph; ends are a point (P1) or x, y; lower in the list is drawn on top</span></h4>
+            {graph.marks.length ? (
+              <ol className="graph-marks">
+                {graph.marks.map((m, i) => (
+                  <li key={i} className={`graph-mark${picked === i ? " is-picked" : ""}`} onFocus={() => setPicked(i)}>
+                    <Dropdown compact label="Kind" value={m.kind} onChange={(kind) => set(changeMark(i, { kind }), true)}
+                      options={markKinds.map((k) => ({ value: k, label: k[0].toUpperCase() + k.slice(1), icon: <Icon name={k === "line" ? "lineTool" : k === "arrow" ? "arrowTool" : "vectorTool"} /> }))} />
+                    <EndInput label="From" value={m.from} points={graph.points} onChange={(from) => set(changeMark(i, { from }))} />
+                    <span className="graph-mark-to" aria-hidden="true">→</span>
+                    <EndInput label="To" value={m.to} points={graph.points} onChange={(to) => set(changeMark(i, { to }))} />
+                    <input className="input graph-mark-label" value={m.label ?? ""} placeholder="Label" aria-label="Label"
+                      onChange={(e) => set(changeMark(i, { label: e.target.value || undefined }))} />
+                    <Swatches value={m.colour} onChange={(colour) => set(changeMark(i, { colour }), true)} />
+                    <button type="button" className={`tool${m.shadow ? " is-on" : ""}`} aria-pressed={!!m.shadow} aria-label="Shadow" title="Shadow: an outline that keeps it clear of lines it crosses"
+                      onClick={() => set(changeMark(i, { shadow: !m.shadow || undefined }), true)}><Icon name="shadow" /></button>
+                    <button type="button" className="tool" aria-label="Bring to front" title="Bring to front" disabled={i === graph.marks.length - 1}
+                      onClick={() => { set({ marks: [...graph.marks.filter((_, j) => j !== i), m] }, true); setPicked(graph.marks.length - 1); }}><Icon name="front" /></button>
+                    <button type="button" className="tool tool-danger" aria-label="Delete line" title="Delete" onClick={() => deleteMark(i)}><Icon name="trash" /></button>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className="graph-none">None yet. Pick Line, Arrow or Vector above the graph.</p>}
+          </section>
+          <footer className="graph-foot">
+            <button type="button" className="btn-link danger" onClick={remove}>Delete graph</button>
+            <button type="button" className="btn btn-sm" onClick={close}>Done</button>
+          </footer>
         </div>
-      ) : !graph.points.length && <p className="cell-empty graph-empty">No points yet. Click to add some.</p>}
+      ) : !graph.points.length && !graph.marks.length && <p className="cell-empty graph-empty">Nothing on it yet. Click to add points and lines.</p>}
       <input className="media-caption" value={caption} placeholder="Add a caption" aria-label="Caption" onChange={(e) => updateAttributes({ caption: e.target.value })} />
     </NodeViewWrapper>
+  );
+}
+
+// The colour of a line: its kind's own (the first swatch), or one from the palette.
+function Swatches({ value, onChange }: { value: Colour | undefined; onChange: (c: Colour | undefined) => void }) {
+  return (
+    <span className="swatches" role="radiogroup" aria-label="Colour">
+      <button type="button" role="radio" aria-checked={!value} aria-label="Default colour" title="Default" className={`swatch swatch-default${!value ? " is-on" : ""}`} onClick={() => onChange(undefined)} />
+      {colours.map((c) => (
+        <button key={c} type="button" role="radio" aria-checked={value === c} aria-label={c} title={c} className={`swatch d-${c}${value === c ? " is-on" : ""}`} onClick={() => onChange(c)} />
+      ))}
+    </span>
+  );
+}
+
+// One end of a line, typed: "P2" or "x, y". Kept as typed until it reads as an end.
+function EndInput({ label, value, points, onChange }: { label: string; value: End; points: Graph["points"]; onChange: (e: End) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const bad = text !== null && !parseEnd(text, points);
+  return (
+    <input className={`input graph-end${bad ? " is-bad" : ""}`} value={text ?? endText(value)} aria-label={label} aria-invalid={bad} placeholder="P1 or x, y"
+      onChange={(e) => { setText(e.target.value); const end = parseEnd(e.target.value, points); if (end) onChange(end); }} onBlur={() => setText(null)} />
   );
 }
 
@@ -313,7 +508,8 @@ export const GraphBlock = Node.create({
     return node.attrs.caption ? ["figure", attrs, ["figcaption", {}, node.attrs.caption]] : ["figure", attrs];
   },
   addNodeView() {
-    return ReactNodeViewRenderer(GraphView);
+    // While it's being edited, pointer and key events on the graph and its panel are its own, not the note's.
+    return ReactNodeViewRenderer(GraphView, { stopEvent: ({ event }) => !!(event.target instanceof Element && event.target.closest(".note-graph.is-editing")) });
   },
 });
 

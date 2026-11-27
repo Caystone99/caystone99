@@ -1,4 +1,9 @@
 // Small pieces shared by the SVG that graphs and drawings are made of.
+
+// The colours lines and shapes can be: names from the site's palette (styled as d-*), so they follow the theme.
+export const colours = ["ink", "accent", "go", "work", "explore", "danger"] as const;
+export type Colour = (typeof colours)[number];
+export const isColour = (v: unknown): v is Colour => colours.includes(v as Colour);
 export const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 export const fixed = (v: number) => String(Number(v.toFixed(1)));
